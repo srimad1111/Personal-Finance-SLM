@@ -56,6 +56,7 @@ export async function getAllTransactions(): Promise<Transaction[]> {
     category: r.category as Transaction['category'],
     amount: r.amount,
     description: r.description,
+    date: new Date(r.timestamp).toISOString().split('T')[0],
     timestamp: r.timestamp,
     isAiCategorized: r.is_ai_categorized === 1,
   }));
@@ -85,4 +86,3 @@ export async function getFinancialSummary(): Promise<FinancialSummary> {
     transactionCount: summaryRow?.txCount ?? 0,
   };
 }
-

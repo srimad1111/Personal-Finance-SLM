@@ -1,51 +1,78 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, StyleProp, ViewStyle } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../theme';
 
 interface StatusBadgeProps {
   label: string;
-  status: 'active' | 'pending' | 'offline';
+  icon?: keyof typeof Ionicons.glyphMap;
+  color?: string;
+  backgroundColor?: string;
+  status?: 'success' | 'warning' | 'danger' | 'info' | 'ai';
+  style?: StyleProp<ViewStyle>;
 }
 
-export const StatusBadge: React.FC<StatusBadgeProps> = ({ label, status }) => {
-  const getColors = () => {
+export const StatusBadge: React.FC<StatusBadgeProps> = ({
+  label,
+  icon,
+  color,
+  backgroundColor,
+  status = 'info',
+  style,
+}) => {
+  const { colors, borderRadius } = useTheme();
+
+  const getStatusColors = (): { bg: string; text: string } => {
+    if (color && backgroundColor) {
+      return { bg: backgroundColor, text: color };
+    }
     switch (status) {
-      case 'active':
-        return { bg: '#e8f5e9', text: '#2e7d32', dot: '#4caf50' };
-      case 'pending':
-        return { bg: '#fff8e1', text: '#f57f17', dot: '#ffb300' };
-      case 'offline':
-        return { bg: '#ede7f6', text: '#512da8', dot: '#7e57c2' };
+      case 'success':
+        return { bg: colors.successLight, text: colors.success };
+      case 'warning':
+        return { bg: colors.warningLight, text: colors.warning };
+      case 'danger':
+        return { bg: colors.dangerLight, text: colors.danger };
+      case 'ai':
+        return { bg: colors.aiAccentLight, text: colors.aiAccentGlow };
+      case 'info':
+      default:
+        return { bg: colors.chipBackground, text: colors.textSecondary };
     }
   };
 
-  const colors = getColors();
+  const scheme = getStatusColors();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      <View style={[styles.dot, { backgroundColor: colors.dot }]} />
-      <Text style={[styles.text, { color: colors.text }]}>{label}</Text>
+    <View
+      style={[
+        styles.badge,
+        {
+          backgroundColor: scheme.bg,
+          borderRadius: borderRadius.full,
+        },
+        style,
+      ]}
+    >
+      {icon && (
+        <Ionicons name={icon} size={11} color={scheme.text} style={{ marginRight: 4 }} />
+      )}
+      <Text style={[styles.label, { color: scheme.text }]}>{label}</Text>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     alignSelf: 'flex-start',
   },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 6,
-  },
-  text: {
-    fontSize: 12,
-    fontWeight: '600',
+  label: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.1,
   },
 });
-

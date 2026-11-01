@@ -20,19 +20,19 @@ export const HomeScreen: React.FC = () => {
     netBalance: 0,
     transactionCount: 0,
   });
-  const [dbStatus, setDbStatus] = useState<'pending' | 'active' | 'offline'>('pending');
+  const [dbStatus, setDbStatus] = useState<'warning' | 'success' | 'danger'>('warning');
   const [loading, setLoading] = useState(true);
 
   const initApp = async () => {
     try {
       setLoading(true);
       await getDatabase();
-      setDbStatus('active');
+      setDbStatus('success');
       const data = await getFinancialSummary();
       setSummary(data);
     } catch (err) {
       console.error('Initialization error:', err);
-      setDbStatus('offline');
+      setDbStatus('danger');
     } finally {
       setLoading(false);
     }
@@ -49,6 +49,7 @@ export const HomeScreen: React.FC = () => {
         category: 'groceries',
         amount: 45.5,
         description: 'Supermarket purchase',
+        date: new Date().toISOString().split('T')[0],
         isAiCategorized: true,
       });
       const data = await getFinancialSummary();
@@ -73,17 +74,17 @@ export const HomeScreen: React.FC = () => {
           <View style={styles.statusRow}>
             <Text style={styles.statusLabel}>SQLite Local Database</Text>
             <StatusBadge
-              label={dbStatus === 'active' ? 'Connected (WAL)' : 'Initializing'}
+              label={dbStatus === 'success' ? 'Connected (WAL)' : 'Initializing'}
               status={dbStatus}
             />
           </View>
           <View style={styles.statusRow}>
             <Text style={styles.statusLabel}>Privacy Mode</Text>
-            <StatusBadge label="100% Offline" status="active" />
+            <StatusBadge label="100% Offline" status="success" />
           </View>
           <View style={styles.statusRow}>
             <Text style={styles.statusLabel}>Inference Runtime</Text>
-            <StatusBadge label="llama.cpp / GGUF (Ready for model)" status="pending" />
+            <StatusBadge label="llama.cpp / GGUF (Ready for model)" status="ai" />
           </View>
         </Card>
 
@@ -221,4 +222,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

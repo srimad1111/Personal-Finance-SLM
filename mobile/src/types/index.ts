@@ -3,6 +3,7 @@ export type TransactionType = 'income' | 'expense';
 export type TransactionCategory =
   | 'salary'
   | 'investment'
+  | 'freelance'
   | 'food_and_dining'
   | 'groceries'
   | 'shopping'
@@ -12,7 +13,16 @@ export type TransactionCategory =
   | 'healthcare'
   | 'entertainment'
   | 'education'
+  | 'travel'
   | 'misc';
+
+export interface CategoryMetadata {
+  id: TransactionCategory;
+  name: string;
+  icon: string;
+  color: string;
+  type: TransactionType;
+}
 
 export interface Transaction {
   id: string;
@@ -20,8 +30,12 @@ export interface Transaction {
   category: TransactionCategory;
   amount: number;
   description: string;
+  merchant?: string;
+  date: string; // ISO date string YYYY-MM-DD
   timestamp: number;
+  notes?: string;
   isAiCategorized: boolean;
+  aiConfidence?: number;
 }
 
 export interface FinancialSummary {
@@ -31,10 +45,48 @@ export interface FinancialSummary {
   transactionCount: number;
 }
 
-export interface ModelInferenceState {
-  isModelLoaded: boolean;
-  modelName: string;
-  inferenceBackend: 'local_gguf' | 'uninitialized';
-  vramOrRamUsageMb?: number;
+export interface CategoryBudget {
+  category: TransactionCategory;
+  allocatedAmount: number;
+  spentAmount: number;
+  color: string;
 }
 
+export interface OverallBudget {
+  monthlyLimit: number;
+  totalSpent: number;
+  daysRemaining: number;
+  projectedSavings: number;
+}
+
+export interface SpendingTrend {
+  month: string; // e.g. 'Jun', 'Jul', 'Aug'
+  income: number;
+  expense: number;
+  savings: number;
+}
+
+export interface CategoryBreakdown {
+  category: TransactionCategory;
+  name: string;
+  amount: number;
+  percentage: number;
+  color: string;
+  icon: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  sender: 'user' | 'assistant';
+  text: string;
+  timestamp: number;
+  suggestedActions?: string[];
+  financialInsight?: {
+    type: 'alert' | 'metric' | 'breakdown';
+    title: string;
+    value?: string;
+    details?: string;
+  };
+}
+
+export type MainTabType = 'dashboard' | 'transactions' | 'budgets' | 'analytics' | 'assistant';
