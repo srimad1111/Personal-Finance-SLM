@@ -1,0 +1,56 @@
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+model/.venv/
+
+# Node & Expo
+node_modules/
+mobile/node_modules/
+.expo/
+mobile/.expo/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Android Builds
+android/.gradle
+android/app/build
+android/build
+mobile/android/.gradle
+mobile/android/app/build
+mobile/android/build
+*.apk
+*.aab
+
+# Model Weights & Large Checkpoints
+*.bin
+*.pt
+*.pth
+*.safetensors
+*.gguf
+models/*.gguf
+models/*.safetensors
+model/data/raw/*
+!model/data/raw/.gitkeep
+model/data/processed/*
+!model/data/processed/.gitkeep
+
+# Local SQLite databases
+*.db
+*.db-wal
+*.db-shm
+
+# Python cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
