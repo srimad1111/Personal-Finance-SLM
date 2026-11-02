@@ -17,6 +17,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { useTheme } from '../theme';
 import { getMonthlyTrends, getCategoryWiseTotals } from '../database';
 import { MonthlyTrend, CategorySpendingSummary } from '../types/database';
+import { formatINR } from '../utils/currency';
 
 export const AnalyticsScreen: React.FC = () => {
   const { colors, borderRadius } = useTheme();
@@ -180,7 +181,7 @@ export const AnalyticsScreen: React.FC = () => {
                       { color: avgMonthlySavings >= 0 ? colors.success : colors.danger },
                     ]}
                   >
-                    ${avgMonthlySavings.toFixed(2)}
+                    {formatINR(avgMonthlySavings)}
                   </Text>
                 </View>
                 <View
@@ -209,7 +210,7 @@ export const AnalyticsScreen: React.FC = () => {
                       { color: totalSavings >= 0 ? colors.success : colors.danger },
                     ]}
                   >
-                    ${totalSavings.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    {formatINR(totalSavings)}
                   </Text>
                 </View>
                 <View style={[styles.dividerVertical, { backgroundColor: colors.borderSubtle }]} />
@@ -261,7 +262,7 @@ export const AnalyticsScreen: React.FC = () => {
                             {cat.categoryName}
                           </Text>
                           <Text style={[styles.catBreakdownAmount, { color: colors.textPrimary }]}>
-                            ${cat.totalAmount.toFixed(2)}
+                            {formatINR(cat.totalAmount)}
                           </Text>
                         </View>
 

@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS budgets (
 export const CREATE_SETTINGS_TABLE_SQL = `
 CREATE TABLE IF NOT EXISTS settings (
   id TEXT PRIMARY KEY NOT NULL,
-  currency TEXT NOT NULL DEFAULT 'USD',
+  currency TEXT NOT NULL DEFAULT 'INR',
   theme TEXT NOT NULL DEFAULT 'dark' CHECK(theme IN ('dark', 'light')),
   privacy_preferences TEXT NOT NULL
 );
@@ -90,7 +90,7 @@ export const SEED_CATEGORIES: SeedCategory[] = [
 
 export const DEFAULT_SETTINGS = {
   id: 'default_settings',
-  currency: 'USD',
+  currency: 'INR',
   theme: 'dark',
   privacy_preferences: JSON.stringify({
     localOnly: true,

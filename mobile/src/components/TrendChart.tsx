@@ -10,8 +10,8 @@ interface TrendChartProps {
 export const TrendChart: React.FC<TrendChartProps> = ({ trends }) => {
   const { colors, borderRadius } = useTheme();
 
-  // Find max value to normalize heights
-  const maxVal = Math.max(...trends.flatMap((t) => [t.income, t.expense]), 8000);
+  // Find max value to normalize heights for INR scale
+  const maxVal = Math.max(...trends.flatMap((t) => [t.income, t.expense]), 50000);
   const chartHeight = 140;
 
   return (

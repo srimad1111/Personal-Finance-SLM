@@ -2,8 +2,8 @@
 
 ## 1. Research Objectives
 1. Adapt a Small Language Model (sub-3B parameters) to excel at:
-   - High-accuracy transaction categorization (e.g., matching raw text like `"WAL-MART #2193 DALLAS TX"` to `groceries` / `shopping`).
-   - Domain-specific financial Q&A and budgeting analysis grounded in user's SQLite records.
+   - High-accuracy transaction categorization for Indian financial ecosystems (e.g., matching raw narratives like `"SWIGGY BANGALORE UPI"`, `"BLINKIT COMMERCE"`, `"BESCOM ELECTRICITY"` to `Food`, `Groceries`, `Bills`).
+   - Domain-specific financial Q&A and budgeting analysis in Indian Rupees (INR - ₹) grounded in user's SQLite records (UPI spends, SIP investments, rent, utility bills).
 2. Maximize inference throughput on edge mobile devices while minimizing RAM consumption and battery drain.
 
 ---
@@ -17,7 +17,7 @@
 ### 2.2 Financial Q&A & Reasoning Dataset
 - Instruction-response pairs answering user queries using provided transaction context:
   - *"How much did I spend on dining out this month?"*
-  - *"Can I afford a $200 gadget based on my savings this week?"*
+  - *"Can I afford a ₹5,000 purchase based on my savings this week?"*
 
 ---
 

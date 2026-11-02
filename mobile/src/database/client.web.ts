@@ -30,7 +30,7 @@ interface WebDbState {
   transactions: TransactionEntity[];
 }
 
-const STORAGE_KEY = 'pf_slm_database_web_v1';
+const STORAGE_KEY = 'pf_slm_database_web_v2';
 
 class WebDatabaseClient implements IDatabaseClient {
   private state: WebDbState = {
@@ -109,13 +109,13 @@ class WebDatabaseClient implements IDatabaseClient {
 
     if (this.state.budgets.length === 0) {
       const initialBudgets: [string, number][] = [
-        ['housing', 1850.0],
-        ['groceries', 600.0],
-        ['food_and_dining', 450.0],
-        ['shopping', 400.0],
-        ['transportation', 250.0],
-        ['utilities', 200.0],
-        ['entertainment', 150.0],
+        ['housing', 25000.0],
+        ['groceries', 8000.0],
+        ['food_and_dining', 6000.0],
+        ['shopping', 7000.0],
+        ['transportation', 3500.0],
+        ['utilities', 3000.0],
+        ['entertainment', 2500.0],
       ];
 
       this.state.budgets = initialBudgets.map(([catId, limit]) => ({
@@ -133,36 +133,36 @@ class WebDatabaseClient implements IDatabaseClient {
       this.state.transactions = [
         {
           id: `tx_${Date.now()}_01`,
-          amount: 6250.0,
+          amount: 85000.0,
           transaction_type: 'income',
-          description: 'Bi-weekly Direct Deposit',
-          merchant: 'Anthropic Technologies',
+          description: 'Monthly Corporate Salary',
+          merchant: 'Infosys Ltd Payroll',
           category: 'salary',
           transaction_date: `${currentYear}-${monthStr}-01`,
-          notes: 'Regular salary disbursement',
+          notes: 'Monthly salary credited via NEFT',
           created_at: Date.now() - 86400000 * 2,
           is_ai_categorized: 1,
           ai_confidence: 0.99,
         },
         {
           id: `tx_${Date.now()}_02`,
-          amount: 1850.0,
+          amount: 24000.0,
           transaction_type: 'expense',
           description: 'Monthly Apartment Lease',
-          merchant: 'Avalon Luxury Apartments',
+          merchant: 'Prestige Residency Lease',
           category: 'housing',
           transaction_date: `${currentYear}-${monthStr}-01`,
-          notes: 'Rent + reserved parking space',
+          notes: 'Flat rent transfer to landlord via UPI',
           created_at: Date.now() - 86400000 * 2,
           is_ai_categorized: 1,
           ai_confidence: 0.98,
         },
         {
           id: `tx_${Date.now()}_03`,
-          amount: 142.35,
+          amount: 3450.0,
           transaction_type: 'expense',
-          description: 'Organic Groceries & Produce',
-          merchant: 'Whole Foods Market',
+          description: 'Weekly Organic Groceries & Staples',
+          merchant: 'Blinkit Commerce',
           category: 'groceries',
           transaction_date: `${currentYear}-${monthStr}-02`,
           notes: null,
@@ -172,10 +172,10 @@ class WebDatabaseClient implements IDatabaseClient {
         },
         {
           id: `tx_${Date.now()}_04`,
-          amount: 68.5,
+          amount: 1280.0,
           transaction_type: 'expense',
-          description: 'Dinner with Engineering Team',
-          merchant: 'Blue Bottle Coffee & Bistro',
+          description: 'Dinner with Team at Barbeque Nation',
+          merchant: 'Swiggy Online',
           category: 'food_and_dining',
           transaction_date: `${currentYear}-${monthStr}-02`,
           notes: null,
@@ -185,10 +185,10 @@ class WebDatabaseClient implements IDatabaseClient {
         },
         {
           id: `tx_${Date.now()}_05`,
-          amount: 89.2,
+          amount: 2150.0,
           transaction_type: 'expense',
-          description: 'Electric & Gas Bill Oct',
-          merchant: 'ConEdison Electric',
+          description: 'Monthly Electricity Consumption Bill',
+          merchant: 'BESCOM Bangalore Electricity',
           category: 'utilities',
           transaction_date: `${currentYear}-${monthStr}-02`,
           notes: null,
@@ -198,10 +198,10 @@ class WebDatabaseClient implements IDatabaseClient {
         },
         {
           id: `tx_${Date.now()}_06`,
-          amount: 32.4,
+          amount: 420.0,
           transaction_type: 'expense',
-          description: 'Ride to Airport Terminal',
-          merchant: 'Uber Technologies',
+          description: 'Ride to Airport Metro Station',
+          merchant: 'Uber India',
           category: 'transportation',
           transaction_date: `${currentYear}-${monthStr}-02`,
           notes: null,
@@ -211,13 +211,13 @@ class WebDatabaseClient implements IDatabaseClient {
         },
         {
           id: `tx_${Date.now()}_07`,
-          amount: 850.0,
+          amount: 18500.0,
           transaction_type: 'income',
           description: 'Embedded ML Consulting Milestone 1',
-          merchant: 'Acme Advisory Client',
+          merchant: 'Fintech Advisory Client',
           category: 'freelance',
           transaction_date: `${currentYear}-${monthStr}-02`,
-          notes: 'Invoice #2041 paid via wire',
+          notes: 'Invoice #2041 paid via IMPS wire',
           created_at: Date.now() - 43200000,
           is_ai_categorized: 0,
           ai_confidence: null,

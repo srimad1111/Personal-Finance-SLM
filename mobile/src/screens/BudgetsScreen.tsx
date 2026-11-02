@@ -25,6 +25,7 @@ import {
   budgetRepository,
 } from '../database';
 import { BudgetProgressSummary, CategoryEntity } from '../types/database';
+import { formatINR } from '../utils/currency';
 
 interface BudgetsScreenProps {
   onDatabaseChanged?: () => void;
@@ -135,7 +136,7 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
     }
     const cleanLimit = parseFloat(createLimitInput.replace(/[^0-9.]/g, ''));
     if (isNaN(cleanLimit) || cleanLimit <= 0) {
-      setCreateError('Please enter a valid monthly limit ($)');
+      setCreateError('Please enter a valid monthly limit (₹)');
       return;
     }
 
@@ -201,7 +202,7 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
                 Overspending Warning ({overspentBudgets.length} {overspentBudgets.length === 1 ? 'Category' : 'Categories'})
               </Text>
               <Text style={[styles.bannerSub, { color: colors.textPrimary }]}>
-                {overspentBudgets.map((b) => `${b.categoryName} by $${Math.abs(b.remainingAmount).toFixed(2)}`).join(', ')}.
+                {overspentBudgets.map((b) => `${b.categoryName} by ${formatINR(Math.abs(b.remainingAmount))}`).join(', ')}.
               </Text>
             </View>
           </View>
@@ -239,9 +240,9 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
                 {currentMonthName.toUpperCase()} {currentYear} OVERALL BUDGET
               </Text>
               <Text style={[styles.masterLimit, { color: colors.textPrimary }]}>
-                ${totalSpent.toFixed(2)}{' '}
+                {formatINR(totalSpent)}{' '}
                 <Text style={{ fontSize: 18, color: colors.textMuted, fontWeight: '500' }}>
-                  / ${totalLimit.toFixed(2)}
+                  / {formatINR(totalLimit)}
                 </Text>
               </Text>
             </View>
@@ -261,7 +262,7 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
             <View>
               <Text style={[styles.footerSub, { color: colors.textMuted }]}>REMAINING SAFE TO SPEND</Text>
               <Text style={[styles.footerHighlight, { color: colors.success }]}>
-                ${overallRemaining.toFixed(2)}
+                {formatINR(overallRemaining)}
               </Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
@@ -330,8 +331,8 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
                       </Text>
                       <Text style={[styles.catRemainingText, { color: isOverBudget ? colors.danger : colors.textMuted }]}>
                         {isOverBudget
-                          ? `Over by $${Math.abs(b.remainingAmount).toFixed(2)}`
-                          : `$${b.remainingAmount.toFixed(2)} left`}
+                          ? `Over by ${formatINR(Math.abs(b.remainingAmount))}`
+                          : `${formatINR(b.remainingAmount)} left`}
                       </Text>
                     </View>
 
@@ -342,10 +343,10 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
 
                     <View style={styles.catSpendingMeta}>
                       <Text style={[styles.catSpendingAmount, { color: colors.textSecondary }]}>
-                        Spent: <Text style={{ fontWeight: '700', color: colors.textPrimary }}>${b.spentAmount.toFixed(2)}</Text>
+                        Spent: <Text style={{ fontWeight: '700', color: colors.textPrimary }}>{formatINR(b.spentAmount)}</Text>
                       </Text>
                       <Text style={[styles.catSpendingLimit, { color: colors.textMuted }]}>
-                        Cap: ${b.monthlyLimit.toFixed(2)} ({b.percentage.toFixed(0)}%)
+                        Cap: {formatINR(b.monthlyLimit)} ({b.percentage.toFixed(0)}%)
                       </Text>
                     </View>
                   </View>
@@ -424,7 +425,7 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
 
             {/* Monthly Limit Input */}
             <View style={styles.modalInputWrapper}>
-              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>MONTHLY LIMIT ($)</Text>
+              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>MONTHLY LIMIT (₹)</Text>
               <TextInput
                 style={[
                   styles.modalInput,
@@ -435,7 +436,7 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
                     borderRadius: borderRadius.md,
                   },
                 ]}
-                placeholder="e.g. 500.00"
+                placeholder="e.g. 5000.00"
                 placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"
                 value={createLimitInput}
@@ -488,11 +489,11 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
               </View>
 
               <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
-                Current spending in SQLite: ${editingBudget.spentAmount.toFixed(2)}
+                Current spending in SQLite: {formatINR(editingBudget.spentAmount)}
               </Text>
 
               <View style={styles.modalInputWrapper}>
-                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>NEW MONTHLY LIMIT ($)</Text>
+                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>NEW MONTHLY LIMIT (₹)</Text>
                 <TextInput
                   style={[
                     styles.modalInput,

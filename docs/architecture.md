@@ -53,6 +53,7 @@ flowchart TD
 ### 2.1 Mobile Application (`mobile/`)
 - **Framework**: React Native with Expo SDK 52.
 - **Language**: TypeScript with strict mode enabled (`"strict": true`).
+- **Currency & Localization**: Indian Rupee (`INR` - `₹`) default, utilizing the `en-IN` grouping system (`₹450`, `₹12,500`, `₹1,50,000`, `₹10,00,000`) across all ledger displays, charts, and queries.
 - **Data Persistence**: `expo-sqlite` utilizing SQLite WAL (Write-Ahead Logging) mode for concurrent read/write transactions and data durability.
 - **On-Device Inference Integration**:
   - In development/initial phase: Modular abstraction interface (`IModelInferenceService`).

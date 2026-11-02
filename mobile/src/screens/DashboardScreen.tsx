@@ -18,6 +18,7 @@ import { CATEGORIES } from '../data/mockData';
 import { MainTabType, Transaction } from '../types';
 import { getCategoryWiseTotals, getFinancialSummary } from '../database';
 import { CategoryBreakdown } from '../types';
+import { formatINR, formatTransactionAmount } from '../utils/currency';
 
 interface DashboardScreenProps {
   onNavigate: (tab: MainTabType) => void;
@@ -181,7 +182,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </View>
 
           <Text style={[styles.balanceAmount, { color: colors.textPrimary }]}>
-            {showBalance ? `$${netBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '••••••••'}
+            {showBalance ? formatINR(netBalance) : '••••••••'}
           </Text>
 
           {/* Current Month Metrics Grid */}
@@ -192,7 +193,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <Text style={[styles.metricLabel, { color: colors.textMuted }]}>This Month In</Text>
               </View>
               <Text style={[styles.metricNumber, { color: colors.success }]}>
-                +${monthlyIncome.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                {formatINR(monthlyIncome, { showSign: true })}
               </Text>
             </View>
 
@@ -204,7 +205,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <Text style={[styles.metricLabel, { color: colors.textMuted }]}>This Month Out</Text>
               </View>
               <Text style={[styles.metricNumber, { color: colors.danger }]}>
-                -${monthlyExpense.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                -{formatINR(monthlyExpense)}
               </Text>
             </View>
 
@@ -352,7 +353,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       { color: isIncome ? colors.success : colors.textPrimary },
                     ]}
                   >
-                    {isIncome ? '+' : '-'}${tx.amount.toFixed(2)}
+                    {formatTransactionAmount(tx.amount, tx.type)}
                   </Text>
                   <Text style={[styles.txDate, { color: colors.textMuted }]}>{tx.date}</Text>
                 </View>

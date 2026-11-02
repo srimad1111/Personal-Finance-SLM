@@ -17,6 +17,7 @@ import { OfflineAiBadge } from '../components/OfflineAiBadge';
 import { useTheme } from '../theme';
 import { getFinancialSummary, getCategoryWiseTotals } from '../database';
 import { ChatMessage } from '../types';
+import { formatINR } from '../utils/currency';
 
 export const AiAssistantScreen: React.FC = () => {
   const { colors, borderRadius } = useTheme();
@@ -25,7 +26,7 @@ export const AiAssistantScreen: React.FC = () => {
     {
       id: 'msg_01',
       sender: 'assistant',
-      text: "Hello! I am your offline Financial Assistant. All arithmetic calculations and financial summaries are computed deterministically from your local SQLite database without cloud APIs.\n\nAsk me about your total balance, monthly spending, or category breakdowns!",
+      text: "Namaste! I am your offline Financial Assistant. All arithmetic calculations and financial summaries are computed deterministically in Indian Rupees (₹) from your local SQLite database without cloud APIs.\n\nAsk me about your total balance, UPI expenses, monthly budgets, or category breakdowns!",
       timestamp: Date.now() - 3600000,
     },
   ]);
@@ -82,34 +83,34 @@ export const AiAssistantScreen: React.FC = () => {
       const lower = text.toLowerCase();
 
       if (lower.includes('afford') || lower.includes('purchase')) {
-        const canAfford = summary.netBalance > 200;
+        const canAfford = summary.netBalance > 5000;
         responseText = canAfford
-          ? `Based on your deterministic SQLite ledger:\n\n• Current Net Balance: $${summary.netBalance.toFixed(2)}\n• Total Income: $${summary.totalIncome.toFixed(2)}\n• Total Expenses: $${summary.totalExpenses.toFixed(2)}\n\nYou have positive liquidity to accommodate minor discretionary purchases.`
-          : `Based on your deterministic SQLite ledger, your current net balance is $${summary.netBalance.toFixed(2)}. Spending caution is advised as outflows are high.`;
+          ? `Based on your deterministic SQLite ledger:\n\n• Current Net Balance: ${formatINR(summary.netBalance)}\n• Total Income: ${formatINR(summary.totalIncome)}\n• Total Expenses: ${formatINR(summary.totalExpenses)}\n\nYou have positive liquidity in Indian Rupees (₹) to accommodate minor discretionary purchases.`
+          : `Based on your deterministic SQLite ledger, your current net balance is ${formatINR(summary.netBalance)}. Spending caution is advised as outflows are high.`;
         insight = {
           type: 'metric',
           title: canAfford ? 'Liquidity Verdict: POSITIVE' : 'Liquidity Verdict: CAUTION',
-          value: `$${summary.netBalance.toFixed(2)} Net Balance`,
+          value: `${formatINR(summary.netBalance)} Net Balance`,
           details: `${summary.transactionCount} total transactions evaluated in SQLite`,
         };
       } else if (lower.includes('largest') || lower.includes('highest') || lower.includes('category')) {
         if (topExpense) {
-          responseText = `Your largest expense category in SQLite is ${topExpense.categoryName} with a total of $${topExpense.totalAmount.toFixed(2)} (${topExpense.percentage.toFixed(1)}% of all expenses across ${topExpense.transactionCount} transactions).`;
+          responseText = `Your largest expense category in SQLite is ${topExpense.categoryName} with a total of ${formatINR(topExpense.totalAmount)} (${topExpense.percentage.toFixed(1)}% of all expenses across ${topExpense.transactionCount} transactions).`;
           insight = {
             type: 'breakdown',
             title: 'Top Outflow Category',
-            value: `$${topExpense.totalAmount.toFixed(2)}`,
+            value: formatINR(topExpense.totalAmount),
             details: `${topExpense.categoryName} (${topExpense.percentage.toFixed(1)}% of total)`,
           };
         } else {
           responseText = 'You have no recorded expense transactions in SQLite yet.';
         }
       } else {
-        responseText = `Local SQLite Deterministic Summary:\n\n• Total Income: +$${summary.totalIncome.toFixed(2)}\n• Total Outflows: -$${summary.totalExpenses.toFixed(2)}\n• Net Balance: $${summary.netBalance.toFixed(2)}\n• Transactions Logged: ${summary.transactionCount}\n\nAll math is calculated deterministically with zero cloud transmission.`;
+        responseText = `Local SQLite Deterministic Summary:\n\n• Total Income: +${formatINR(summary.totalIncome)}\n• Total Outflows: -${formatINR(summary.totalExpenses)}\n• Net Balance: ${formatINR(summary.netBalance)}\n• Transactions Logged: ${summary.transactionCount}\n\nAll math is calculated deterministically with zero cloud transmission.`;
         insight = {
           type: 'metric',
           title: 'Deterministic Balance',
-          value: `$${summary.netBalance.toFixed(2)}`,
+          value: formatINR(summary.netBalance),
           details: `Computed from ${summary.transactionCount} SQLite records`,
         };
       }

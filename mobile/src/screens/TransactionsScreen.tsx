@@ -17,6 +17,7 @@ import { Button } from '../components/Button';
 import { useTheme } from '../theme';
 import { CATEGORIES } from '../data/mockData';
 import { Transaction } from '../types';
+import { formatTransactionAmount } from '../utils/currency';
 
 type SortOption = 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc';
 
@@ -388,7 +389,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                         { color: isIncome ? colors.success : colors.textPrimary },
                       ]}
                     >
-                      {isIncome ? '+' : '-'}${tx.amount.toFixed(2)}
+                      {formatTransactionAmount(tx.amount, tx.type)}
                     </Text>
                     <Text style={[styles.txDate, { color: colors.textMuted }]}>{tx.date}</Text>
                   </View>
@@ -501,7 +502,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                     { color: inspectTx.type === 'income' ? colors.success : colors.danger },
                   ]}
                 >
-                  {inspectTx.type === 'income' ? '+' : '-'}${inspectTx.amount.toFixed(2)}
+                  {formatTransactionAmount(inspectTx.amount, inspectTx.type)}
                 </Text>
                 <Text style={[styles.modalTypeLabel, { color: colors.textSecondary }]}>
                   {inspectTx.type === 'income' ? 'CREDIT / INFLOW' : 'DEBIT / OUTFLOW'}

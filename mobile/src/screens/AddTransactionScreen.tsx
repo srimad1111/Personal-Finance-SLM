@@ -84,7 +84,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
     const cleanAmountStr = amount.replace(/[^0-9.]/g, '');
     const parsedAmount = parseFloat(cleanAmountStr);
     if (!cleanAmountStr || isNaN(parsedAmount) || parsedAmount <= 0) {
-      setAmountError('Enter a valid amount greater than $0.00');
+      setAmountError('Enter a valid amount greater than ₹0.00');
       isValid = false;
     } else if (!/^\d+(\.\d{1,2})?$/.test(cleanAmountStr)) {
       setAmountError('Amount can have at most 2 decimal places');
@@ -223,7 +223,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
 
           {/* Amount Display & Input with Validation */}
           <Card style={[styles.amountCard, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.amountLabel, { color: colors.textMuted }]}>TRANSACTION AMOUNT ($)</Text>
+            <Text style={[styles.amountLabel, { color: colors.textMuted }]}>TRANSACTION AMOUNT (₹)</Text>
             <View style={styles.amountInputRow}>
               <Text
                 style={[
@@ -231,7 +231,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                   { color: type === 'income' ? colors.success : colors.danger },
                 ]}
               >
-                $
+                ₹
               </Text>
               <TextInput
                 style={[

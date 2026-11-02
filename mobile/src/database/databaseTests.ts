@@ -57,9 +57,9 @@ export async function runDatabaseTests(): Promise<DbTestSuiteReport> {
     if (!initialSettings.currency) {
       throw new Error('Default settings missing currency');
     }
-    const updated = await settingsRepository.updateSettings({ currency: 'USD' });
-    if (updated.currency !== 'USD') {
-      throw new Error(`Expected currency USD, received ${updated.currency}`);
+    const updated = await settingsRepository.updateSettings({ currency: 'INR' });
+    if (updated.currency !== 'INR') {
+      throw new Error(`Expected currency INR, received ${updated.currency}`);
     }
   });
 
