@@ -8,6 +8,7 @@ import {
   TextInput,
   TouchableOpacity,
   Modal,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../components/Header';
@@ -16,16 +17,18 @@ import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/Button';
 import { useTheme } from '../theme';
 import { CATEGORIES } from '../data/mockData';
-import { Transaction, TransactionType } from '../types';
+import { Transaction } from '../types';
 
 interface TransactionsScreenProps {
   transactions: Transaction[];
   onOpenAddModal: () => void;
+  onDeleteTransaction?: (id: string) => void;
 }
 
 export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
   transactions,
   onOpenAddModal,
+  onDeleteTransaction,
 }) => {
   const { colors, borderRadius } = useTheme();
 
@@ -65,11 +68,17 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
     .filter((t) => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0);
 
+  const handleDelete = (tx: Transaction) => {
+    if (!onDeleteTransaction) return;
+    onDeleteTransaction(tx.id);
+    setInspectTx(null);
+  };
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <Header
         title="Transactions"
-        subtitle={`${filteredTransactions.length} recorded entries`}
+        subtitle={`${filteredTransactions.length} recorded in SQLite`}
         rightAction={
           <TouchableOpacity
             style={[
@@ -304,7 +313,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
         )}
       </ScrollView>
 
-      {/* Transaction Details Modal */}
+      {/* Transaction Details & Delete Modal */}
       {inspectTx && (
         <Modal
           visible={!!inspectTx}
@@ -408,12 +417,22 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                 )}
               </View>
 
-              <Button
-                title="Close"
-                variant="secondary"
-                onPress={() => setInspectTx(null)}
-                style={{ marginTop: 16 }}
-              />
+              {/* Action Buttons */}
+              <View style={{ marginTop: 16, gap: 8 }}>
+                {onDeleteTransaction && (
+                  <Button
+                    title="Delete Transaction"
+                    icon="trash-outline"
+                    variant="danger"
+                    onPress={() => handleDelete(inspectTx)}
+                  />
+                )}
+                <Button
+                  title="Close"
+                  variant="secondary"
+                  onPress={() => setInspectTx(null)}
+                />
+              </View>
             </View>
           </View>
         </Modal>
@@ -621,4 +640,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Modal,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../components/Header';
@@ -16,31 +17,61 @@ import { ProgressBar } from '../components/ProgressBar';
 import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/Button';
 import { useTheme } from '../theme';
-import {
-  INITIAL_OVERALL_BUDGET,
-  INITIAL_CATEGORY_BUDGETS,
-  CATEGORIES,
-} from '../data/mockData';
-import { CategoryBudget, OverallBudget, TransactionCategory } from '../types';
+import { CATEGORIES } from '../data/mockData';
+import { getBudgetProgress, upsertBudget } from '../database';
+import { BudgetProgressSummary } from '../types/database';
 
-export const BudgetsScreen: React.FC = () => {
+interface BudgetsScreenProps {
+  onDatabaseChanged?: () => void;
+}
+
+export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged }) => {
   const { colors, borderRadius } = useTheme();
 
-  const [overallBudget, setOverallBudget] = useState<OverallBudget>(INITIAL_OVERALL_BUDGET);
-  const [categoryBudgets, setCategoryBudgets] = useState<CategoryBudget[]>(INITIAL_CATEGORY_BUDGETS);
-  const [editingBudget, setEditingBudget] = useState<CategoryBudget | null>(null);
+  const [budgets, setBudgets] = useState<BudgetProgressSummary[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [editingBudget, setEditingBudget] = useState<BudgetProgressSummary | null>(null);
   const [editLimitInput, setEditLimitInput] = useState('');
 
-  // Computations
-  const overallRatio = overallBudget.totalSpent / overallBudget.monthlyLimit;
-  const overallRemaining = Math.max(overallBudget.monthlyLimit - overallBudget.totalSpent, 0);
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  const currentMonthName = monthNames[now.getMonth()];
 
-  const handleOpenEdit = (budget: CategoryBudget) => {
+  const loadBudgetsFromDb = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const data = await getBudgetProgress(currentMonth, currentYear);
+      setBudgets(data);
+    } catch (err) {
+      console.error('[LOAD_BUDGETS_ERROR]', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentMonth, currentYear]);
+
+  useEffect(() => {
+    loadBudgetsFromDb();
+  }, [loadBudgetsFromDb]);
+
+  // Total budget and spending metrics
+  const totalLimit = budgets.reduce((sum, b) => sum + b.monthlyLimit, 0);
+  const totalSpent = budgets.reduce((sum, b) => sum + b.spentAmount, 0);
+  const overallRemaining = Math.max(totalLimit - totalSpent, 0);
+  const overallRatio = totalLimit > 0 ? totalSpent / totalLimit : 0;
+  const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+  const daysRemaining = Math.max(daysInMonth - now.getDate(), 0);
+
+  const handleOpenEdit = (budget: BudgetProgressSummary) => {
     setEditingBudget(budget);
-    setEditLimitInput(budget.allocatedAmount.toString());
+    setEditLimitInput(budget.monthlyLimit.toString());
   };
 
-  const handleSaveBudgetLimit = () => {
+  const handleSaveBudgetLimit = async () => {
     if (!editingBudget) return;
     const newLimit = parseFloat(editLimitInput.replace(/[^0-9.]/g, ''));
     if (isNaN(newLimit) || newLimit <= 0) {
@@ -48,17 +79,24 @@ export const BudgetsScreen: React.FC = () => {
       return;
     }
 
-    setCategoryBudgets((prev) =>
-      prev.map((b) => (b.category === editingBudget.category ? { ...b, allocatedAmount: newLimit } : b))
-    );
-    setEditingBudget(null);
+    try {
+      await upsertBudget(editingBudget.categoryId, newLimit, currentMonth, currentYear);
+      await loadBudgetsFromDb();
+      if (onDatabaseChanged) {
+        onDatabaseChanged();
+      }
+      setEditingBudget(null);
+    } catch (err) {
+      console.error('[SAVE_BUDGET_ERROR]', err);
+      alert('Failed to update budget in local SQLite.');
+    }
   };
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <Header
         title="Budgets"
-        subtitle="Spending Guardrails & Limits"
+        subtitle="Spending Guardrails (SQLite)"
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -67,17 +105,17 @@ export const BudgetsScreen: React.FC = () => {
           <View style={styles.masterHeader}>
             <View>
               <Text style={[styles.masterCaption, { color: colors.textMuted }]}>
-                NOVEMBER OVERALL BUDGET
+                {currentMonthName.toUpperCase()} {currentYear} OVERALL BUDGET
               </Text>
               <Text style={[styles.masterLimit, { color: colors.textPrimary }]}>
-                ${overallBudget.totalSpent.toFixed(2)}{' '}
+                ${totalSpent.toFixed(2)}{' '}
                 <Text style={{ fontSize: 18, color: colors.textMuted, fontWeight: '500' }}>
-                  / ${overallBudget.monthlyLimit.toFixed(2)}
+                  / ${totalLimit.toFixed(2)}
                 </Text>
               </Text>
             </View>
             <StatusBadge
-              label={`${overallBudget.daysRemaining} days left`}
+              label={`${daysRemaining} days left`}
               icon="calendar-outline"
               status="info"
             />
@@ -96,9 +134,14 @@ export const BudgetsScreen: React.FC = () => {
               </Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <Text style={[styles.footerSub, { color: colors.textMuted }]}>PROJECTED SAVINGS</Text>
-              <Text style={[styles.footerHighlight, { color: colors.accentLight }]}>
-                ${overallBudget.projectedSavings.toFixed(2)}
+              <Text style={[styles.footerSub, { color: colors.textMuted }]}>STATUS</Text>
+              <Text
+                style={[
+                  styles.footerHighlight,
+                  { color: overallRemaining > 0 ? colors.accentLight : colors.danger },
+                ]}
+              >
+                {overallRemaining > 0 ? 'On Track' : 'Exceeded'}
               </Text>
             </View>
           </View>
@@ -110,71 +153,79 @@ export const BudgetsScreen: React.FC = () => {
             Category Allowances
           </Text>
           <Text style={[styles.sectionCount, { color: colors.textMuted }]}>
-            {categoryBudgets.length} monitored
+            {budgets.length} in SQLite
           </Text>
         </View>
 
-        {/* Category Budget Cards */}
-        {categoryBudgets.map((b) => {
-          const catMeta = CATEGORIES[b.category] || CATEGORIES.misc;
-          const ratio = b.spentAmount / b.allocatedAmount;
-          const remaining = b.allocatedAmount - b.spentAmount;
-          const isOverBudget = remaining < 0;
+        {isLoading ? (
+          <ActivityIndicator size="small" color={colors.accent} style={{ marginVertical: 20 }} />
+        ) : (
+          budgets.map((b) => {
+            const catMeta = (CATEGORIES as Record<string, any>)[b.categoryId] || {
+              id: b.categoryId,
+              name: b.categoryName,
+              icon: b.icon || 'folder-outline',
+              color: b.color || '#3B82F6',
+              type: 'expense' as const,
+            };
+            const ratio = b.monthlyLimit > 0 ? b.spentAmount / b.monthlyLimit : 0;
+            const isOverBudget = b.isOverBudget;
 
-          return (
-            <Card
-              key={b.category}
-              style={styles.categoryCard}
-              onPress={() => handleOpenEdit(b)}
-            >
-              <View style={styles.categoryRow}>
-                {/* Category Icon */}
-                <View
-                  style={[
-                    styles.catIconCircle,
-                    {
-                      backgroundColor: `${b.color}20`,
-                      borderRadius: borderRadius.md,
-                    },
-                  ]}
-                >
-                  <Ionicons name={catMeta.icon as any} size={20} color={b.color} />
+            return (
+              <Card
+                key={b.id}
+                style={styles.categoryCard}
+                onPress={() => handleOpenEdit(b)}
+              >
+                <View style={styles.categoryRow}>
+                  {/* Category Icon */}
+                  <View
+                    style={[
+                      styles.catIconCircle,
+                      {
+                        backgroundColor: `${b.color}20`,
+                        borderRadius: borderRadius.md,
+                      },
+                    ]}
+                  >
+                    <Ionicons name={catMeta.icon as any} size={20} color={b.color} />
+                  </View>
+
+                  {/* Info */}
+                  <View style={styles.catInfo}>
+                    <View style={styles.catNameRow}>
+                      <Text style={[styles.catName, { color: colors.textPrimary }]}>
+                        {b.categoryName}
+                      </Text>
+                      <Text style={[styles.catRemainingText, { color: isOverBudget ? colors.danger : colors.textMuted }]}>
+                        {isOverBudget
+                          ? `Over by $${Math.abs(b.remainingAmount).toFixed(2)}`
+                          : `$${b.remainingAmount.toFixed(2)} left`}
+                      </Text>
+                    </View>
+
+                    {/* Progress Bar */}
+                    <View style={{ marginVertical: 8 }}>
+                      <ProgressBar progress={ratio} height={6} autoThresholdColor />
+                    </View>
+
+                    <View style={styles.catSpendingMeta}>
+                      <Text style={[styles.catSpendingAmount, { color: colors.textSecondary }]}>
+                        Spent: <Text style={{ fontWeight: '700', color: colors.textPrimary }}>${b.spentAmount.toFixed(2)}</Text>
+                      </Text>
+                      <Text style={[styles.catSpendingLimit, { color: colors.textMuted }]}>
+                        Cap: ${b.monthlyLimit.toFixed(2)} ({b.percentage.toFixed(0)}%)
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Edit chevron */}
+                  <Ionicons name="create-outline" size={16} color={colors.textMuted} style={{ marginLeft: 8 }} />
                 </View>
-
-                {/* Info */}
-                <View style={styles.catInfo}>
-                  <View style={styles.catNameRow}>
-                    <Text style={[styles.catName, { color: colors.textPrimary }]}>
-                      {catMeta.name}
-                    </Text>
-                    <Text style={[styles.catRemainingText, { color: isOverBudget ? colors.danger : colors.textMuted }]}>
-                      {isOverBudget
-                        ? `Over by $${Math.abs(remaining).toFixed(2)}`
-                        : `$${remaining.toFixed(2)} left`}
-                    </Text>
-                  </View>
-
-                  {/* Progress Bar */}
-                  <View style={{ marginVertical: 8 }}>
-                    <ProgressBar progress={ratio} height={6} autoThresholdColor />
-                  </View>
-
-                  <View style={styles.catSpendingMeta}>
-                    <Text style={[styles.catSpendingAmount, { color: colors.textSecondary }]}>
-                      Spent: <Text style={{ fontWeight: '700', color: colors.textPrimary }}>${b.spentAmount.toFixed(2)}</Text>
-                    </Text>
-                    <Text style={[styles.catSpendingLimit, { color: colors.textMuted }]}>
-                      Cap: ${b.allocatedAmount.toFixed(2)} ({(ratio * 100).toFixed(0)}%)
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Edit chevron */}
-                <Ionicons name="create-outline" size={16} color={colors.textMuted} style={{ marginLeft: 8 }} />
-              </View>
-            </Card>
-          );
-        })}
+              </Card>
+            );
+          })
+        )}
       </ScrollView>
 
       {/* Edit Budget Limit Modal */}
@@ -198,7 +249,7 @@ export const BudgetsScreen: React.FC = () => {
             >
               <View style={styles.modalHeader}>
                 <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                  Edit {CATEGORIES[editingBudget.category]?.name} Budget
+                  Edit {editingBudget.categoryName} Budget
                 </Text>
                 <TouchableOpacity onPress={() => setEditingBudget(null)}>
                   <Ionicons name="close" size={22} color={colors.textMuted} />
@@ -206,7 +257,7 @@ export const BudgetsScreen: React.FC = () => {
               </View>
 
               <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
-                Current monthly spending: ${editingBudget.spentAmount.toFixed(2)}
+                Current spending in SQLite: ${editingBudget.spentAmount.toFixed(2)}
               </Text>
 
               <View style={styles.modalInputWrapper}>
@@ -229,7 +280,7 @@ export const BudgetsScreen: React.FC = () => {
               </View>
 
               <View style={styles.modalActions}>
-                <Button title="Save Budget Limit" onPress={handleSaveBudgetLimit} />
+                <Button title="Save to SQLite" onPress={handleSaveBudgetLimit} />
                 <Button
                   title="Cancel"
                   variant="ghost"
@@ -393,4 +444,3 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 });
-

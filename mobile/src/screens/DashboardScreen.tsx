@@ -16,8 +16,6 @@ import { ExpenseBreakdownBar } from '../components/ExpenseBreakdownBar';
 import { StatusBadge } from '../components/StatusBadge';
 import { useTheme } from '../theme';
 import {
-  INITIAL_TRANSACTIONS,
-  INITIAL_OVERALL_BUDGET,
   CATEGORY_BREAKDOWN,
   CATEGORIES,
 } from '../data/mockData';
@@ -26,18 +24,20 @@ import { MainTabType, Transaction } from '../types';
 interface DashboardScreenProps {
   onNavigate: (tab: MainTabType) => void;
   onOpenAddModal: (type?: 'income' | 'expense') => void;
+  onOpenDbDiagnostics?: () => void;
   transactions?: Transaction[];
 }
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onNavigate,
   onOpenAddModal,
-  transactions = INITIAL_TRANSACTIONS,
+  onOpenDbDiagnostics,
+  transactions = [],
 }) => {
-  const { colors, typography, borderRadius } = useTheme();
+  const { colors, borderRadius } = useTheme();
   const [showBalance, setShowBalance] = useState(true);
 
-  // Compute metrics from transactions
+  // Compute live metrics from SQLite transactions
   const totalIncome = transactions
     .filter((t) => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
@@ -56,19 +56,36 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         title="Portfolio"
         subtitle="SLM-Powered Financial Overview"
         rightAction={
-          <TouchableOpacity
-            style={[
-              styles.avatarButton,
-              {
-                backgroundColor: colors.surfaceElevated,
-                borderColor: colors.border,
-              },
-            ]}
-            onPress={() => onNavigate('assistant')}
-            accessibilityLabel="AI Assistant"
-          >
-            <Ionicons name="sparkles" size={17} color={colors.aiAccentGlow} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {onOpenDbDiagnostics && (
+              <TouchableOpacity
+                style={[
+                  styles.headerActionBtn,
+                  {
+                    backgroundColor: colors.surfaceElevated,
+                    borderColor: colors.border,
+                  },
+                ]}
+                onPress={onOpenDbDiagnostics}
+                accessibilityLabel="SQLite Diagnostics & Tests"
+              >
+                <Ionicons name="server-outline" size={17} color={colors.accent} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[
+                styles.headerActionBtn,
+                {
+                  backgroundColor: colors.surfaceElevated,
+                  borderColor: colors.border,
+                },
+              ]}
+              onPress={() => onNavigate('assistant')}
+              accessibilityLabel="AI Assistant"
+            >
+              <Ionicons name="sparkles" size={17} color={colors.aiAccentGlow} />
+            </TouchableOpacity>
+          </View>
         }
       />
 
@@ -76,9 +93,27 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Offline SLM Engine Status Pill */}
+        {/* Offline Status & SQLite Health Row */}
         <View style={styles.badgeRow}>
           <OfflineAiBadge onPress={() => onNavigate('assistant')} />
+          {onOpenDbDiagnostics && (
+            <TouchableOpacity
+              onPress={onOpenDbDiagnostics}
+              style={[
+                styles.dbPill,
+                {
+                  backgroundColor: colors.surfaceElevated,
+                  borderColor: colors.border,
+                  borderRadius: borderRadius.full,
+                },
+              ]}
+            >
+              <View style={[styles.dot, { backgroundColor: colors.success }]} />
+              <Text style={[styles.dbPillText, { color: colors.textSecondary }]}>
+                SQLite: <Text style={{ fontWeight: '700', color: colors.success }}>WAL Active</Text>
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Master Balance Card */}
@@ -175,7 +210,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 Expense Breakdown
               </Text>
               <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>
-                Categorized by local SLM model
+                Stored locally in SQLite database
               </Text>
             </View>
             <TouchableOpacity onPress={() => onNavigate('analytics')}>
@@ -189,10 +224,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         {/* Recent Transactions Section */}
         <View style={styles.recentTransactionsHeader}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-            Recent Transactions
+            Recent Transactions ({transactions.length})
           </Text>
           <TouchableOpacity onPress={() => onNavigate('transactions')}>
-            <Text style={[styles.seeAllText, { color: colors.accent }]}>See all ({transactions.length})</Text>
+            <Text style={[styles.seeAllText, { color: colors.accent }]}>See all →</Text>
           </TouchableOpacity>
         </View>
 
@@ -274,15 +309,35 @@ const styles = StyleSheet.create({
     paddingBottom: 110,
   },
   badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
   },
-  avatarButton: {
+  headerActionBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
+  },
+  dbPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  dbPillText: {
+    fontSize: 11,
+    fontWeight: '500',
   },
   balanceCard: {
     padding: 20,
@@ -417,4 +472,3 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
 });
-

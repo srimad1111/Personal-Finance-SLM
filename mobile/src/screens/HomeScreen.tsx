@@ -45,12 +45,15 @@ export const HomeScreen: React.FC = () => {
   const handleSeedDemoTx = async () => {
     try {
       await insertTransaction({
-        type: 'expense',
+        transaction_type: 'expense',
         category: 'groceries',
         amount: 45.5,
         description: 'Supermarket purchase',
-        date: new Date().toISOString().split('T')[0],
-        isAiCategorized: true,
+        merchant: 'Whole Foods Market',
+        transaction_date: new Date().toISOString().split('T')[0],
+        notes: 'Local SQLite insert test',
+        is_ai_categorized: 1,
+        ai_confidence: 0.98,
       });
       const data = await getFinancialSummary();
       setSummary(data);
