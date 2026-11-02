@@ -1,5 +1,5 @@
 import { getDatabaseClient } from '../client';
-import { BudgetEntity, BudgetProgressSummary } from '../../types/database';
+import { BudgetEntity, BudgetProgressSummary, CategoryEntity } from '../../types/database';
 
 export class BudgetRepository {
   /**
@@ -69,6 +69,25 @@ export class BudgetRepository {
   }
 
   /**
+   * Retrieve categories that have NOT been budgeted for the given month/year.
+   */
+  async getUnbudgetedCategories(month: number, year: number): Promise<CategoryEntity[]> {
+    const db = await getDatabaseClient();
+
+    const sql = `
+      SELECT c.*
+      FROM categories c
+      WHERE c.type = 'expense'
+        AND c.id NOT IN (
+          SELECT category_id FROM budgets WHERE month = ? AND year = ?
+        )
+      ORDER BY c.name ASC;
+    `;
+
+    return await db.getAllAsync<CategoryEntity>(sql, [month, year]);
+  }
+
+  /**
    * Upsert a category budget (insert or update on conflict).
    */
   async upsert(
@@ -107,4 +126,3 @@ export class BudgetRepository {
     return result.changes > 0;
   }
 }
-

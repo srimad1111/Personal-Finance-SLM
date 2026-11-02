@@ -9,6 +9,8 @@ import {
   FinancialSummary,
   CategorySpendingSummary,
   BudgetProgressSummary,
+  MonthlyTrend,
+  CategoryEntity,
   SettingsEntity,
 } from '../types/database';
 
@@ -72,8 +74,16 @@ export async function getCategoryWiseTotals(
   return await transactionRepository.getCategoryWiseTotals(type, startDate, endDate);
 }
 
+export async function getMonthlyTrends(monthsCount: number = 6): Promise<MonthlyTrend[]> {
+  return await transactionRepository.getMonthlyTrends(monthsCount);
+}
+
 export async function getBudgetProgress(month: number, year: number): Promise<BudgetProgressSummary[]> {
   return await budgetRepository.getBudgetProgress(month, year);
+}
+
+export async function getUnbudgetedCategories(month: number, year: number): Promise<CategoryEntity[]> {
+  return await budgetRepository.getUnbudgetedCategories(month, year);
 }
 
 export async function upsertBudget(

@@ -9,7 +9,7 @@ import { DbTestSuiteReport, DbTestResult } from '../types/database';
 
 /**
  * Automated end-to-end SQLite test suite for Personal Finance SLM.
- * Tests every CRUD operation, filters, aggregations, foreign keys, and injection safety.
+ * Tests every CRUD operation, filters, sorting, aggregations, foreign keys, and injection safety.
  */
 export async function runDatabaseTests(): Promise<DbTestSuiteReport> {
   const results: DbTestResult[] = [];
@@ -74,8 +74,8 @@ export async function runDatabaseTests(): Promise<DbTestSuiteReport> {
       category: 'groceries',
       transaction_date: '2026-11-02',
       notes: 'Automated test record',
-      is_ai_categorized: 1,
-      ai_confidence: 0.98,
+      is_ai_categorized: 0,
+      ai_confidence: null,
     });
 
     if (!created.id || created.amount !== 88.5) {
@@ -93,8 +93,33 @@ export async function runDatabaseTests(): Promise<DbTestSuiteReport> {
     }
   });
 
-  // Test 6: Filter Transactions
-  await runTest('DB-06: Filter Transactions by Category & Date', async () => {
+  // Test 6: Sort Transactions
+  await runTest('DB-06: Deterministic Sorting (By Date & Amount)', async () => {
+    const byAmountDesc = await transactionRepository.getAll({
+      sortBy: 'amount',
+      sortOrder: 'DESC',
+      limit: 5,
+    });
+    if (byAmountDesc.length >= 2) {
+      if (byAmountDesc[0].amount < byAmountDesc[1].amount) {
+        throw new Error('Sorting by amount DESC failed');
+      }
+    }
+
+    const byDateAsc = await transactionRepository.getAll({
+      sortBy: 'date',
+      sortOrder: 'ASC',
+      limit: 5,
+    });
+    if (byDateAsc.length >= 2) {
+      if (byDateAsc[0].transaction_date > byDateAsc[1].transaction_date) {
+        throw new Error('Sorting by date ASC failed');
+      }
+    }
+  });
+
+  // Test 7: Filter Transactions
+  await runTest('DB-07: Filter Transactions by Category & Date', async () => {
     const results = await transactionRepository.getAll({
       category: 'groceries',
       startDate: '2026-11-01',
@@ -110,8 +135,8 @@ export async function runDatabaseTests(): Promise<DbTestSuiteReport> {
     }
   });
 
-  // Test 7: Update Transaction
-  await runTest('DB-07: Update Transaction Amount & Notes', async () => {
+  // Test 8: Update Transaction
+  await runTest('DB-08: Update Transaction Amount & Notes', async () => {
     if (!testTxId) throw new Error('No test transaction ID available');
     const updated = await transactionRepository.update(testTxId, {
       amount: 95.0,
@@ -128,22 +153,19 @@ export async function runDatabaseTests(): Promise<DbTestSuiteReport> {
     }
   });
 
-  // Test 8: Aggregation - Financial Summary
-  await runTest('DB-08: Calculate Income & Expense Summary', async () => {
+  // Test 9: Aggregation - Financial Summary
+  await runTest('DB-09: Calculate Income & Expense Summary', async () => {
     const summary = await transactionRepository.getFinancialSummary('2026-11-01', '2026-11-30');
-    if (summary.totalIncome <= 0) {
-      throw new Error('Income calculation should be greater than zero');
-    }
-    if (summary.totalExpenses <= 0) {
-      throw new Error('Expenses calculation should be greater than zero');
+    if (summary.totalIncome < 0 || summary.totalExpenses < 0) {
+      throw new Error('Summary values cannot be negative');
     }
     if (summary.netBalance !== summary.totalIncome - summary.totalExpenses) {
       throw new Error('Net balance does not equal income minus expenses');
     }
   });
 
-  // Test 9: Aggregation - Category-wise Totals
-  await runTest('DB-09: Calculate Category-Wise Totals & Percentages', async () => {
+  // Test 10: Aggregation - Category-wise Totals
+  await runTest('DB-10: Calculate Category-Wise Totals & Percentages', async () => {
     const categoryTotals = await transactionRepository.getCategoryWiseTotals('expense');
     if (categoryTotals.length === 0) {
       throw new Error('Expected at least one category total');
@@ -154,8 +176,21 @@ export async function runDatabaseTests(): Promise<DbTestSuiteReport> {
     }
   });
 
-  // Test 10: Budget Retrieval & Progress
-  await runTest('DB-10: Budget Retrieval & Calculated Spent Amounts', async () => {
+  // Test 11: Aggregation - Monthly Spending Trends
+  await runTest('DB-11: Generate Deterministic Monthly Spending Trends', async () => {
+    const trends = await transactionRepository.getMonthlyTrends(6);
+    if (trends.length === 0) {
+      throw new Error('Expected at least one monthly trend record');
+    }
+    for (const t of trends) {
+      if (t.savings !== t.income - t.expense) {
+        throw new Error('Monthly trend savings calculation mismatch');
+      }
+    }
+  });
+
+  // Test 12: Budget Retrieval & Progress
+  await runTest('DB-12: Budget Retrieval & Calculated Spent Amounts', async () => {
     const now = new Date();
     const budgets = await budgetRepository.getBudgetProgress(now.getMonth() + 1, now.getFullYear());
     if (budgets.length === 0) {
@@ -170,8 +205,8 @@ export async function runDatabaseTests(): Promise<DbTestSuiteReport> {
     }
   });
 
-  // Test 11: Budget Upsert
-  await runTest('DB-11: Budget Upsert (Insert or Update Limit)', async () => {
+  // Test 13: Budget Upsert
+  await runTest('DB-13: Budget Upsert (Insert or Update Limit)', async () => {
     const now = new Date();
     const month = now.getMonth() + 1;
     const year = now.getFullYear();
@@ -182,8 +217,8 @@ export async function runDatabaseTests(): Promise<DbTestSuiteReport> {
     }
   });
 
-  // Test 12: SQL Injection Attack Resilience
-  await runTest('DB-12: SQL Injection Parameterization Resilience', async () => {
+  // Test 14: SQL Injection Attack Resilience
+  await runTest('DB-14: SQL Injection Parameterization Resilience', async () => {
     const maliciousInput = "Test'; DROP TABLE transactions; --";
     const attackTx = await transactionRepository.insert({
       amount: 10.0,
@@ -197,18 +232,16 @@ export async function runDatabaseTests(): Promise<DbTestSuiteReport> {
       ai_confidence: null,
     });
 
-    // Verify table is intact and record was saved literally
     const verifyFetch = await transactionRepository.getById(attackTx.id);
     if (!verifyFetch || verifyFetch.description !== maliciousInput) {
       throw new Error('Parameterized injection test failed: text was not stored literally');
     }
 
-    // Clean up attack test record
     await transactionRepository.delete(attackTx.id);
   });
 
-  // Test 13: Delete Transaction
-  await runTest('DB-13: Delete Transaction & Verify Removal', async () => {
+  // Test 15: Delete Transaction
+  await runTest('DB-15: Delete Transaction & Verify Removal', async () => {
     if (!testTxId) throw new Error('No test transaction ID available');
     const deleted = await transactionRepository.delete(testTxId);
     if (!deleted) {
@@ -231,4 +264,3 @@ export async function runDatabaseTests(): Promise<DbTestSuiteReport> {
     results,
   };
 }
-

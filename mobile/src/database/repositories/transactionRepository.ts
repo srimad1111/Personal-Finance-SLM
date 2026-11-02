@@ -4,6 +4,7 @@ import {
   TransactionFilter,
   FinancialSummary,
   CategorySpendingSummary,
+  MonthlyTrend,
 } from '../../types/database';
 
 export class TransactionRepository {
@@ -136,7 +137,7 @@ export class TransactionRepository {
   }
 
   /**
-   * Retrieve transactions with dynamic parameterized filters.
+   * Retrieve transactions with dynamic parameterized filters and sorting.
    */
   async getAll(filter?: TransactionFilter): Promise<TransactionEntity[]> {
     const db = await getDatabaseClient();
@@ -175,7 +176,10 @@ export class TransactionRepository {
       sql += ` WHERE ${conditions.join(' AND ')}`;
     }
 
-    sql += ' ORDER BY transaction_date DESC, created_at DESC';
+    // Determine deterministic sorting
+    const sortField = filter?.sortBy === 'amount' ? 'amount' : 'transaction_date';
+    const sortDirection = filter?.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+    sql += ` ORDER BY ${sortField} ${sortDirection}, created_at DESC`;
 
     if (filter?.limit) {
       sql += ' LIMIT ?';
@@ -296,5 +300,45 @@ export class TransactionRepository {
       percentage: grandTotal > 0 ? (r.totalAmount / grandTotal) * 100 : 0,
     }));
   }
-}
 
+  /**
+   * Calculate monthly spending and income trends over the last N months.
+   */
+  async getMonthlyTrends(monthsCount: number = 6): Promise<MonthlyTrend[]> {
+    const db = await getDatabaseClient();
+
+    const sql = `
+      SELECT 
+        substr(transaction_date, 1, 7) as yearMonth,
+        COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) as income,
+        COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as expense
+      FROM transactions
+      GROUP BY yearMonth
+      ORDER BY yearMonth DESC
+      LIMIT ?;
+    `;
+
+    const rows = await db.getAllAsync<{
+      yearMonth: string;
+      income: number;
+      expense: number;
+    }>(sql, [monthsCount]);
+
+    // Reverse to chronological order (oldest to newest)
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    return rows.reverse().map((r) => {
+      const parts = r.yearMonth.split('-');
+      const monthIdx = parseInt(parts[1], 10) - 1;
+      const monthLabel = monthNames[monthIdx] || parts[1];
+
+      return {
+        month: monthLabel,
+        yearMonth: r.yearMonth,
+        income: r.income,
+        expense: r.expense,
+        savings: r.income - r.expense,
+      };
+    });
+  }
+}

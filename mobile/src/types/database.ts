@@ -43,6 +43,8 @@ export interface TransactionFilter {
   startDate?: string;
   endDate?: string;
   searchQuery?: string;
+  sortBy?: 'date' | 'amount';
+  sortOrder?: 'ASC' | 'DESC';
   limit?: number;
   offset?: number;
 }
@@ -78,6 +80,14 @@ export interface BudgetProgressSummary {
   isOverBudget: boolean;
 }
 
+export interface MonthlyTrend {
+  month: string; // e.g. 'Nov 26' or 'Nov'
+  yearMonth: string; // '2026-11'
+  income: number;
+  expense: number;
+  savings: number;
+}
+
 export interface DbTestResult {
   test: string;
   passed: boolean;
@@ -92,4 +102,3 @@ export interface DbTestSuiteReport {
   durationMs: number;
   results: DbTestResult[];
 }
-
