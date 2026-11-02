@@ -1,0 +1,643 @@
+{
+  "dataset_summary": {
+    "total_examples": 7994,
+    "train_examples": 6508,
+    "train_ratio": 81.41,
+    "val_examples": 743,
+    "val_ratio": 9.29,
+    "test_examples": 743,
+    "test_ratio": 9.29,
+    "data_leakage": {
+      "train_test_overlap": 0,
+      "train_val_overlap": 0,
+      "val_test_overlap": 0,
+      "leakage_free": true
+    }
+  },
+  "tasks": {
+    "categorization": 4394,
+    "query_understanding": 3600
+  },
+  "category_distribution": {
+    "Entertainment": 406,
+    "Shopping": 402,
+    "Other": 411,
+    "Investment": 392,
+    "Food": 415,
+    "Bills": 399,
+    "Salary": 420,
+    "Healthcare": 407,
+    "Education": 401,
+    "Travel": 417,
+    "Groceries": 412,
+    "Transportation": 410,
+    "Rent": 402
+  },
+  "intent_distribution": {
+    "category_spending": 450,
+    "budget_status": 450,
+    "total_expenses": 450,
+    "savings_summary": 450,
+    "highest_spending_category": 450,
+    "total_income": 450,
+    "monthly_summary": 450,
+    "date_range_summary": 450
+  },
+  "train_metrics": {
+    "file": "data\\splits\\train.jsonl",
+    "total_records": 6508,
+    "unique_inputs": 6508,
+    "task_distribution": {
+      "categorization": 3580,
+      "query_understanding": 2928
+    },
+    "category_distribution": {
+      "Entertainment": 331,
+      "Shopping": 330,
+      "Other": 334,
+      "Investment": 315,
+      "Food": 339,
+      "Bills": 328,
+      "Salary": 344,
+      "Healthcare": 330,
+      "Education": 329,
+      "Travel": 335,
+      "Groceries": 332,
+      "Transportation": 338,
+      "Rent": 327
+    },
+    "intent_distribution": {
+      "category_spending": 364,
+      "budget_status": 368,
+      "total_expenses": 366,
+      "savings_summary": 364,
+      "highest_spending_category": 366,
+      "total_income": 368,
+      "monthly_summary": 366,
+      "date_range_summary": 366
+    },
+    "amount_stats_overall": {
+      "min": 50.48,
+      "max": 379625.53,
+      "mean": 31018.55,
+      "median": 6931.77,
+      "p25": 2773.05,
+      "p75": 31313.7,
+      "std": 60605.65
+    },
+    "amount_stats_by_category": {
+      "Entertainment": {
+        "min": 121.88,
+        "max": 5468.44,
+        "mean": 2880.78,
+        "median": 2897.21,
+        "p25": 1598.59,
+        "p75": 4252.77,
+        "std": 1555.28
+      },
+      "Shopping": {
+        "min": 302.09,
+        "max": 18462.93,
+        "mean": 9216.95,
+        "median": 8883.84,
+        "p25": 4688.22,
+        "p75": 13911.45,
+        "std": 5282.81
+      },
+      "Other": {
+        "min": 195.73,
+        "max": 34762.35,
+        "mean": 17893.17,
+        "median": 17590.98,
+        "p25": 9548.58,
+        "p75": 26430.07,
+        "std": 10047.13
+      },
+      "Investment": {
+        "min": 916.84,
+        "max": 119521.96,
+        "mean": 62692.41,
+        "median": 63675.49,
+        "p25": 34095.35,
+        "p75": 93920.58,
+        "std": 34183.15
+      },
+      "Bills": {
+        "min": 253.11,
+        "max": 7789.73,
+        "mean": 4396.88,
+        "median": 4564.95,
+        "p25": 2569.09,
+        "p75": 6233.38,
+        "std": 2174.31
+      },
+      "Salary": {
+        "min": 29714.55,
+        "max": 379625.53,
+        "mean": 202638.25,
+        "median": 202565.74,
+        "p25": 116966.64,
+        "p75": 277445.11,
+        "std": 97818.57
+      },
+      "Food": {
+        "min": 102.94,
+        "max": 3199.93,
+        "mean": 1693.39,
+        "median": 1677.04,
+        "p25": 846.22,
+        "p75": 2456.16,
+        "std": 909.16
+      },
+      "Healthcare": {
+        "min": 131.56,
+        "max": 9464.1,
+        "mean": 4541.66,
+        "median": 4418.15,
+        "p25": 2040.8,
+        "p75": 6878.37,
+        "std": 2736.76
+      },
+      "Education": {
+        "min": 769.4,
+        "max": 47869.99,
+        "mean": 23499.54,
+        "median": 22563.55,
+        "p25": 10787.52,
+        "p75": 35115.29,
+        "std": 13446.6
+      },
+      "Travel": {
+        "min": 653.62,
+        "max": 51958.19,
+        "mean": 25282.52,
+        "median": 22798.82,
+        "p25": 13436.56,
+        "p75": 38253.82,
+        "std": 14690.81
+      },
+      "Groceries": {
+        "min": 140.8,
+        "max": 7191.19,
+        "mean": 3519.31,
+        "median": 3702.71,
+        "p25": 1471.8,
+        "p75": 5560.13,
+        "std": 2178.54
+      },
+      "Transportation": {
+        "min": 50.48,
+        "max": 4764.69,
+        "mean": 2346.28,
+        "median": 2294.69,
+        "p25": 1052.09,
+        "p75": 3603.38,
+        "std": 1417.45
+      },
+      "Rent": {
+        "min": 6600.88,
+        "max": 74849.45,
+        "mean": 42136.99,
+        "median": 43812.11,
+        "p25": 23172.56,
+        "p75": 60317.35,
+        "std": 20408.96
+      }
+    },
+    "input_char_stats": {
+      "min": 23,
+      "max": 154,
+      "mean": 83.37,
+      "median": 80,
+      "p25": 65,
+      "p75": 100,
+      "std": 23.66
+    },
+    "input_word_stats": {
+      "min": 3,
+      "max": 21,
+      "mean": 12.53,
+      "median": 13,
+      "p25": 11,
+      "p75": 14,
+      "std": 2.71
+    },
+    "output_char_stats": {
+      "min": 51,
+      "max": 152,
+      "mean": 90.64,
+      "median": 60,
+      "p25": 53,
+      "p75": 132,
+      "std": 39.94
+    },
+    "output_word_stats": {
+      "min": 4,
+      "max": 15,
+      "mean": 7.66,
+      "median": 4,
+      "p25": 4,
+      "p75": 12,
+      "std": 4.06
+    },
+    "vocabulary_size": 6029
+  },
+  "val_metrics": {
+    "file": "data\\splits\\val.jsonl",
+    "total_records": 743,
+    "unique_inputs": 743,
+    "task_distribution": {
+      "categorization": 407,
+      "query_understanding": 336
+    },
+    "category_distribution": {
+      "Shopping": 36,
+      "Transportation": 36,
+      "Entertainment": 37,
+      "Investment": 37,
+      "Education": 36,
+      "Travel": 40,
+      "Groceries": 43,
+      "Other": 40,
+      "Bills": 37,
+      "Rent": 42,
+      "Food": 33,
+      "Healthcare": 37,
+      "Salary": 37
+    },
+    "intent_distribution": {
+      "date_range_summary": 42,
+      "savings_summary": 43,
+      "total_expenses": 42,
+      "budget_status": 41,
+      "highest_spending_category": 42,
+      "monthly_summary": 42,
+      "category_spending": 43,
+      "total_income": 41
+    },
+    "amount_stats_overall": {
+      "min": 103.31,
+      "max": 378046.26,
+      "mean": 29765.63,
+      "median": 6786.06,
+      "p25": 2706.73,
+      "p75": 30791.82,
+      "std": 59898.63
+    },
+    "amount_stats_by_category": {
+      "Shopping": {
+        "min": 311.44,
+        "max": 18417.59,
+        "mean": 9835.9,
+        "median": 9166.35,
+        "p25": 4736.9,
+        "p75": 14091.29,
+        "std": 5192.46
+      },
+      "Transportation": {
+        "min": 283.14,
+        "max": 4792.39,
+        "mean": 2515.59,
+        "median": 2342.3,
+        "p25": 1175.52,
+        "p75": 3666.96,
+        "std": 1350.77
+      },
+      "Entertainment": {
+        "min": 261.18,
+        "max": 5441.66,
+        "mean": 2663.94,
+        "median": 2385.68,
+        "p25": 853.12,
+        "p75": 4789.79,
+        "std": 1858.28
+      },
+      "Investment": {
+        "min": 1365.05,
+        "max": 112851.1,
+        "mean": 57441.31,
+        "median": 58211.18,
+        "p25": 31853.31,
+        "p75": 80839.38,
+        "std": 31726.53
+      },
+      "Education": {
+        "min": 2170.66,
+        "max": 46686.24,
+        "mean": 22461.04,
+        "median": 19233.37,
+        "p25": 7131.8,
+        "p75": 36884.76,
+        "std": 14331.93
+      },
+      "Travel": {
+        "min": 2054.77,
+        "max": 39644.25,
+        "mean": 20942.21,
+        "median": 18941.0,
+        "p25": 10155.62,
+        "p75": 30828.24,
+        "std": 11774.41
+      },
+      "Groceries": {
+        "min": 531.19,
+        "max": 7126.19,
+        "mean": 3930.93,
+        "median": 4032.05,
+        "p25": 2173.9,
+        "p75": 5330.06,
+        "std": 1906.29
+      },
+      "Bills": {
+        "min": 578.29,
+        "max": 7746.72,
+        "mean": 3750.35,
+        "median": 3481.73,
+        "p25": 1093.15,
+        "p75": 5566.11,
+        "std": 2407.66
+      },
+      "Rent": {
+        "min": 7113.41,
+        "max": 73731.55,
+        "mean": 44949.28,
+        "median": 49133.39,
+        "p25": 28213.71,
+        "p75": 60879.87,
+        "std": 20336.52
+      },
+      "Other": {
+        "min": 1957.68,
+        "max": 33913.89,
+        "mean": 17569.5,
+        "median": 19539.02,
+        "p25": 8111.22,
+        "p75": 24077.63,
+        "std": 9360.5
+      },
+      "Food": {
+        "min": 103.31,
+        "max": 3139.77,
+        "mean": 1733.93,
+        "median": 1678.3,
+        "p25": 887.04,
+        "p75": 2401.39,
+        "std": 883.27
+      },
+      "Healthcare": {
+        "min": 116.42,
+        "max": 8758.65,
+        "mean": 4252.32,
+        "median": 4408.3,
+        "p25": 1855.76,
+        "p75": 6589.49,
+        "std": 2625.32
+      },
+      "Salary": {
+        "min": 41183.05,
+        "max": 378046.26,
+        "mean": 197139.62,
+        "median": 189184.87,
+        "p25": 88748.82,
+        "p75": 277938.43,
+        "std": 105816.43
+      }
+    },
+    "input_char_stats": {
+      "min": 36,
+      "max": 150,
+      "mean": 83.37,
+      "median": 80,
+      "p25": 65,
+      "p75": 100,
+      "std": 23.61
+    },
+    "input_word_stats": {
+      "min": 4,
+      "max": 20,
+      "mean": 12.48,
+      "median": 13,
+      "p25": 11,
+      "p75": 14,
+      "std": 2.67
+    },
+    "output_char_stats": {
+      "min": 51,
+      "max": 152,
+      "mean": 90.81,
+      "median": 60,
+      "p25": 53,
+      "p75": 132,
+      "std": 39.9
+    },
+    "output_word_stats": {
+      "min": 4,
+      "max": 15,
+      "mean": 7.67,
+      "median": 4,
+      "p25": 4,
+      "p75": 12,
+      "std": 4.06
+    },
+    "vocabulary_size": 1739
+  },
+  "test_metrics": {
+    "file": "data\\splits\\test.jsonl",
+    "total_records": 743,
+    "unique_inputs": 743,
+    "task_distribution": {
+      "categorization": 407,
+      "query_understanding": 336
+    },
+    "category_distribution": {
+      "Food": 43,
+      "Transportation": 36,
+      "Healthcare": 40,
+      "Other": 37,
+      "Entertainment": 38,
+      "Education": 36,
+      "Investment": 40,
+      "Bills": 34,
+      "Groceries": 37,
+      "Shopping": 36,
+      "Rent": 33,
+      "Travel": 42,
+      "Salary": 39
+    },
+    "intent_distribution": {
+      "monthly_summary": 42,
+      "total_expenses": 42,
+      "highest_spending_category": 42,
+      "category_spending": 43,
+      "budget_status": 41,
+      "date_range_summary": 42,
+      "total_income": 41,
+      "savings_summary": 43
+    },
+    "amount_stats_overall": {
+      "min": 70.43,
+      "max": 377544.51,
+      "mean": 28893.62,
+      "median": 6410.43,
+      "p25": 2681.54,
+      "p75": 30965.52,
+      "std": 58732.3
+    },
+    "amount_stats_by_category": {
+      "Food": {
+        "min": 258.14,
+        "max": 3034.46,
+        "mean": 1522.81,
+        "median": 1696.27,
+        "p25": 570.09,
+        "p75": 2316.77,
+        "std": 911.45
+      },
+      "Transportation": {
+        "min": 70.43,
+        "max": 4614.52,
+        "mean": 2459.63,
+        "median": 2260.22,
+        "p25": 1196.5,
+        "p75": 3718.92,
+        "std": 1365.46
+      },
+      "Healthcare": {
+        "min": 452.77,
+        "max": 9425.91,
+        "mean": 4812.39,
+        "median": 5336.1,
+        "p25": 1955.6,
+        "p75": 7047.0,
+        "std": 2776.99
+      },
+      "Other": {
+        "min": 299.04,
+        "max": 34135.9,
+        "mean": 15124.57,
+        "median": 14516.74,
+        "p25": 6085.92,
+        "p75": 21029.58,
+        "std": 9953.25
+      },
+      "Entertainment": {
+        "min": 436.38,
+        "max": 5451.91,
+        "mean": 3186.22,
+        "median": 3287.48,
+        "p25": 2044.04,
+        "p75": 4213.73,
+        "std": 1460.71
+      },
+      "Investment": {
+        "min": 2716.51,
+        "max": 119598.59,
+        "mean": 50569.64,
+        "median": 51169.26,
+        "p25": 24098.62,
+        "p75": 72136.68,
+        "std": 32345.23
+      },
+      "Groceries": {
+        "min": 213.4,
+        "max": 6977.89,
+        "mean": 3429.03,
+        "median": 3213.52,
+        "p25": 1829.41,
+        "p75": 4821.62,
+        "std": 1909.53
+      },
+      "Rent": {
+        "min": 9290.48,
+        "max": 74525.46,
+        "mean": 38335.58,
+        "median": 36306.52,
+        "p25": 20777.33,
+        "p75": 50792.95,
+        "std": 18805.12
+      },
+      "Travel": {
+        "min": 681.58,
+        "max": 49774.61,
+        "mean": 29749.21,
+        "median": 29655.38,
+        "p25": 19700.38,
+        "p75": 40468.43,
+        "std": 12996.22
+      },
+      "Salary": {
+        "min": 33722.64,
+        "max": 377544.51,
+        "mean": 194262.31,
+        "median": 208477.81,
+        "p25": 82102.03,
+        "p75": 267627.07,
+        "std": 103597.02
+      },
+      "Education": {
+        "min": 1946.93,
+        "max": 47112.22,
+        "mean": 21605.82,
+        "median": 16181.06,
+        "p25": 6323.5,
+        "p75": 38915.06,
+        "std": 15849.34
+      },
+      "Bills": {
+        "min": 945.96,
+        "max": 7311.58,
+        "mean": 3885.38,
+        "median": 4244.9,
+        "p25": 2238.66,
+        "p75": 5387.35,
+        "std": 1989.2
+      },
+      "Shopping": {
+        "min": 663.97,
+        "max": 17566.17,
+        "mean": 8556.11,
+        "median": 7575.73,
+        "p25": 3228.07,
+        "p75": 12322.54,
+        "std": 5705.24
+      }
+    },
+    "input_char_stats": {
+      "min": 23,
+      "max": 149,
+      "mean": 82.83,
+      "median": 79,
+      "p25": 64,
+      "p75": 100,
+      "std": 23.79
+    },
+    "input_word_stats": {
+      "min": 4,
+      "max": 21,
+      "mean": 12.6,
+      "median": 13,
+      "p25": 11,
+      "p75": 14,
+      "std": 2.69
+    },
+    "output_char_stats": {
+      "min": 51,
+      "max": 152,
+      "mean": 90.72,
+      "median": 60,
+      "p25": 53,
+      "p75": 132,
+      "std": 39.81
+    },
+    "output_word_stats": {
+      "min": 4,
+      "max": 15,
+      "mean": 7.67,
+      "median": 4,
+      "p25": 4,
+      "p75": 12,
+      "std": 4.06
+    },
+    "vocabulary_size": 1725
+  }
+}
