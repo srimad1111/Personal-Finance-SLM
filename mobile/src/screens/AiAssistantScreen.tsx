@@ -13,20 +13,22 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../components/Header';
-import { Card } from '../components/Card';
 import { OfflineAiBadge } from '../components/OfflineAiBadge';
-import { StatusBadge } from '../components/StatusBadge';
 import { useTheme } from '../theme';
-import {
-  INITIAL_AI_CHAT,
-  SUGGESTED_QUESTIONS,
-} from '../data/mockData';
+import { getFinancialSummary, getCategoryWiseTotals } from '../database';
 import { ChatMessage } from '../types';
 
 export const AiAssistantScreen: React.FC = () => {
   const { colors, borderRadius } = useTheme();
 
-  const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_AI_CHAT);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: 'msg_01',
+      sender: 'assistant',
+      text: "Hello! I am your offline Financial Assistant. All arithmetic calculations and financial summaries are computed deterministically from your local SQLite database without cloud APIs.\n\nAsk me about your total balance, monthly spending, or category breakdowns!",
+      timestamp: Date.now() - 3600000,
+    },
+  ]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
 
@@ -53,7 +55,7 @@ export const AiAssistantScreen: React.FC = () => {
     }, 100);
   };
 
-  const handleSendMessage = (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputText).trim();
     if (!text) return;
 
@@ -69,41 +71,47 @@ export const AiAssistantScreen: React.FC = () => {
     setIsTyping(true);
     scrollToBottom();
 
-    // Simulate on-device SLM inference latency (500ms - 800ms) with grounded financial answers
-    setTimeout(() => {
+    try {
+      // Deterministic calculations directly from SQLite
+      const summary = await getFinancialSummary();
+      const categoryTotals = await getCategoryWiseTotals('expense');
+      const topExpense = categoryTotals.length > 0 ? categoryTotals[0] : null;
+
       let responseText = '';
       let insight: ChatMessage['financialInsight'] | undefined = undefined;
       const lower = text.toLowerCase();
 
-      if (lower.includes('afford') || lower.includes('$250') || lower.includes('purchase')) {
-        responseText =
-          'Yes, you can comfortably afford this $250 purchase.\n\n• Your projected monthly savings are $2,980.56.\n• Safe unallocated discretionary funds: $1,730.56.\n\nThis will reduce your November savings rate from 65.2% to 61.7%.';
+      if (lower.includes('afford') || lower.includes('purchase')) {
+        const canAfford = summary.netBalance > 200;
+        responseText = canAfford
+          ? `Based on your deterministic SQLite ledger:\n\n• Current Net Balance: $${summary.netBalance.toFixed(2)}\n• Total Income: $${summary.totalIncome.toFixed(2)}\n• Total Expenses: $${summary.totalExpenses.toFixed(2)}\n\nYou have positive liquidity to accommodate minor discretionary purchases.`
+          : `Based on your deterministic SQLite ledger, your current net balance is $${summary.netBalance.toFixed(2)}. Spending caution is advised as outflows are high.`;
         insight = {
           type: 'metric',
-          title: 'Affordability Verdict: SAFE',
-          value: '$1,730.56 Cushion',
-          details: 'Will not breach your $4,200 total monthly spending cap.',
+          title: canAfford ? 'Liquidity Verdict: POSITIVE' : 'Liquidity Verdict: CAUTION',
+          value: `$${summary.netBalance.toFixed(2)} Net Balance`,
+          details: `${summary.transactionCount} total transactions evaluated in SQLite`,
         };
-      } else if (lower.includes('spend this week') || lower.includes('largest expense')) {
-        responseText =
-          'Your largest expense category this month is Housing & Rent ($1,850.00), representing 74.9% of your outflows.\n\nSecond largest: Shopping at $219.00 (Apple Store Online) followed by Groceries at $142.35 (Whole Foods Market).';
-        insight = {
-          type: 'breakdown',
-          title: 'Largest Outflow',
-          value: '$1,850.00',
-          details: 'Housing & Rent (74.9% of total)',
-        };
-      } else if (lower.includes('subscription') || lower.includes('recurring')) {
-        responseText =
-          'I detected 2 recurring subscription charges in your local SQLite logs:\n\n1. Netflix & Spotify Bundle: $22.99 / month\n2. ConEdison Utility: ~$89.20 / month\n\nAnnual subscription run rate: $275.88.';
-        insight = {
-          type: 'alert',
-          title: 'Active Subscriptions',
-          value: '$22.99 / mo',
-          details: 'Digital media services account for ~1% of spending.',
-        };
+      } else if (lower.includes('largest') || lower.includes('highest') || lower.includes('category')) {
+        if (topExpense) {
+          responseText = `Your largest expense category in SQLite is ${topExpense.categoryName} with a total of $${topExpense.totalAmount.toFixed(2)} (${topExpense.percentage.toFixed(1)}% of all expenses across ${topExpense.transactionCount} transactions).`;
+          insight = {
+            type: 'breakdown',
+            title: 'Top Outflow Category',
+            value: `$${topExpense.totalAmount.toFixed(2)}`,
+            details: `${topExpense.categoryName} (${topExpense.percentage.toFixed(1)}% of total)`,
+          };
+        } else {
+          responseText = 'You have no recorded expense transactions in SQLite yet.';
+        }
       } else {
-        responseText = `Based on your on-device transaction ledger, your current balance is $4,630.56 with $2,469.44 total monthly expenses.\n\nAll data is processed strictly locally with zero external network calls.`;
+        responseText = `Local SQLite Deterministic Summary:\n\n• Total Income: +$${summary.totalIncome.toFixed(2)}\n• Total Outflows: -$${summary.totalExpenses.toFixed(2)}\n• Net Balance: $${summary.netBalance.toFixed(2)}\n• Transactions Logged: ${summary.transactionCount}\n\nAll math is calculated deterministically with zero cloud transmission.`;
+        insight = {
+          type: 'metric',
+          title: 'Deterministic Balance',
+          value: `$${summary.netBalance.toFixed(2)}`,
+          details: `Computed from ${summary.transactionCount} SQLite records`,
+        };
       }
 
       const assistantMsg: ChatMessage = {
@@ -117,7 +125,10 @@ export const AiAssistantScreen: React.FC = () => {
       setIsTyping(false);
       setMessages((prev) => [...prev, assistantMsg]);
       scrollToBottom();
-    }, 700);
+    } catch (err) {
+      console.error('[AI_ASSISTANT_QUERY_ERROR]', err);
+      setIsTyping(false);
+    }
   };
 
   const handleClearConversation = () => {
@@ -125,17 +136,23 @@ export const AiAssistantScreen: React.FC = () => {
       {
         id: `msg_welcome_${Date.now()}`,
         sender: 'assistant',
-        text: "Conversation cleared. Memory reset to your active SQLite local ledger.\n\nWhat would you like to review or ask about your finances?",
+        text: "Conversation cleared. Memory reset to your active SQLite local ledger.\n\nWhat would you like to review about your finances?",
         timestamp: Date.now(),
       },
     ]);
   };
 
+  const suggestedQuestions = [
+    'What is my total net balance?',
+    'What is my largest expense category?',
+    'Can I afford a discretionary purchase?',
+  ];
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <Header
-        title="AI Assistant"
-        subtitle="On-Device Small Language Model"
+        title="Finance Assistant"
+        subtitle="Deterministic Local Ledger Engine"
         rightAction={
           <TouchableOpacity
             style={[
@@ -156,7 +173,7 @@ export const AiAssistantScreen: React.FC = () => {
 
       {/* Offline Status Badge Banner */}
       <View style={styles.statusBarWrapper}>
-        <OfflineAiBadge modelName="Llama-3.2-1B-Finance (Local GGUF)" />
+        <OfflineAiBadge modelName="Offline Deterministic Engine (SQLite)" />
       </View>
 
       <KeyboardAvoidingView
@@ -192,7 +209,7 @@ export const AiAssistantScreen: React.FC = () => {
                       },
                     ]}
                   >
-                    <Ionicons name="sparkles" size={15} color={colors.aiAccentGlow} />
+                    <Ionicons name="calculator-outline" size={15} color={colors.aiAccentGlow} />
                   </View>
                 )}
 
@@ -257,30 +274,6 @@ export const AiAssistantScreen: React.FC = () => {
                       )}
                     </View>
                   )}
-
-                  {/* Suggested Action Chips */}
-                  {msg.suggestedActions && (
-                    <View style={styles.actionsContainer}>
-                      {msg.suggestedActions.map((action, i) => (
-                        <TouchableOpacity
-                          key={i}
-                          style={[
-                            styles.actionChip,
-                            {
-                              backgroundColor: colors.surfaceElevated,
-                              borderColor: colors.border,
-                              borderRadius: borderRadius.full,
-                            },
-                          ]}
-                          onPress={() => handleSendMessage(action)}
-                        >
-                          <Text style={[styles.actionChipText, { color: colors.accentLight }]}>
-                            {action} →
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
                 </View>
               </View>
             );
@@ -299,7 +292,7 @@ export const AiAssistantScreen: React.FC = () => {
                   },
                 ]}
               >
-                <Ionicons name="sparkles" size={14} color={colors.aiAccentGlow} />
+                <Ionicons name="calculator-outline" size={14} color={colors.aiAccentGlow} />
               </View>
               <View
                 style={[
@@ -311,11 +304,9 @@ export const AiAssistantScreen: React.FC = () => {
                   },
                 ]}
               >
-                <View style={styles.typingDotsRow}>
-                  <Text style={[styles.typingText, { color: colors.textMuted }]}>
-                    SLM evaluating local SQLite ledger...
-                  </Text>
-                </View>
+                <Text style={[styles.typingText, { color: colors.textMuted }]}>
+                  Evaluating local SQLite ledger...
+                </Text>
               </View>
             </View>
           )}
@@ -324,7 +315,7 @@ export const AiAssistantScreen: React.FC = () => {
         {/* Suggested Quick Prompt Chips */}
         <View style={styles.suggestedWrapper}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestedScroll}>
-            {SUGGESTED_QUESTIONS.map((q, idx) => (
+            {suggestedQuestions.map((q, idx) => (
               <TouchableOpacity
                 key={idx}
                 style={[
@@ -363,7 +354,7 @@ export const AiAssistantScreen: React.FC = () => {
                 borderRadius: borderRadius.full,
               },
             ]}
-            placeholder="Ask about spending, budgets, savings..."
+            placeholder="Ask about spending, balance, categories..."
             placeholderTextColor={colors.textMuted}
             value={inputText}
             onChangeText={setInputText}
@@ -469,28 +460,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
-  actionsContainer: {
-    marginTop: 10,
-    gap: 6,
-  },
-  actionChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 1,
-    alignSelf: 'flex-start',
-  },
-  actionChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
   typingBubble: {
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
-  },
-  typingDotsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   typingText: {
     fontSize: 12,
@@ -534,4 +507,3 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
-

@@ -18,8 +18,13 @@ import { StatusBadge } from '../components/StatusBadge';
 import { Button } from '../components/Button';
 import { useTheme } from '../theme';
 import { CATEGORIES } from '../data/mockData';
-import { getBudgetProgress, upsertBudget } from '../database';
-import { BudgetProgressSummary } from '../types/database';
+import {
+  getBudgetProgress,
+  getUnbudgetedCategories,
+  upsertBudget,
+  budgetRepository,
+} from '../database';
+import { BudgetProgressSummary, CategoryEntity } from '../types/database';
 
 interface BudgetsScreenProps {
   onDatabaseChanged?: () => void;
@@ -29,9 +34,18 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
   const { colors, borderRadius } = useTheme();
 
   const [budgets, setBudgets] = useState<BudgetProgressSummary[]>([]);
+  const [unbudgetedCats, setUnbudgetedCats] = useState<CategoryEntity[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Edit Budget Modal state
   const [editingBudget, setEditingBudget] = useState<BudgetProgressSummary | null>(null);
   const [editLimitInput, setEditLimitInput] = useState('');
+
+  // Create Budget Modal state
+  const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
+  const [selectedCreateCatId, setSelectedCreateCatId] = useState<string>('');
+  const [createLimitInput, setCreateLimitInput] = useState('');
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
@@ -47,12 +61,17 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
       setIsLoading(true);
       const data = await getBudgetProgress(currentMonth, currentYear);
       setBudgets(data);
+      const unbudgeted = await getUnbudgetedCategories(currentMonth, currentYear);
+      setUnbudgetedCats(unbudgeted);
+      if (unbudgeted.length > 0 && !selectedCreateCatId) {
+        setSelectedCreateCatId(unbudgeted[0].id);
+      }
     } catch (err) {
       console.error('[LOAD_BUDGETS_ERROR]', err);
     } finally {
       setIsLoading(false);
     }
-  }, [currentMonth, currentYear]);
+  }, [currentMonth, currentYear, selectedCreateCatId]);
 
   useEffect(() => {
     loadBudgetsFromDb();
@@ -65,6 +84,10 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
   const overallRatio = totalLimit > 0 ? totalSpent / totalLimit : 0;
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
   const daysRemaining = Math.max(daysInMonth - now.getDate(), 0);
+
+  // Overspending Warning Items
+  const overspentBudgets = budgets.filter((b) => b.isOverBudget);
+  const warningBudgets = budgets.filter((b) => !b.isOverBudget && b.percentage >= 80);
 
   const handleOpenEdit = (budget: BudgetProgressSummary) => {
     setEditingBudget(budget);
@@ -92,14 +115,122 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
     }
   };
 
+  const handleDeleteBudget = async (id: string) => {
+    try {
+      await budgetRepository.delete(id);
+      await loadBudgetsFromDb();
+      if (onDatabaseChanged) {
+        onDatabaseChanged();
+      }
+      setEditingBudget(null);
+    } catch (err) {
+      console.error('[DELETE_BUDGET_ERROR]', err);
+    }
+  };
+
+  const handleCreateBudget = async () => {
+    if (!selectedCreateCatId) {
+      setCreateError('Please select a category');
+      return;
+    }
+    const cleanLimit = parseFloat(createLimitInput.replace(/[^0-9.]/g, ''));
+    if (isNaN(cleanLimit) || cleanLimit <= 0) {
+      setCreateError('Please enter a valid monthly limit ($)');
+      return;
+    }
+
+    try {
+      await upsertBudget(selectedCreateCatId, cleanLimit, currentMonth, currentYear);
+      setCreateLimitInput('');
+      setCreateError(null);
+      setShowCreateModal(false);
+      await loadBudgetsFromDb();
+      if (onDatabaseChanged) {
+        onDatabaseChanged();
+      }
+    } catch (err) {
+      console.error('[CREATE_BUDGET_ERROR]', err);
+      setCreateError('Failed to create budget in local SQLite.');
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <Header
         title="Budgets"
         subtitle="Spending Guardrails (SQLite)"
+        rightAction={
+          unbudgetedCats.length > 0 ? (
+            <TouchableOpacity
+              style={[
+                styles.addBudgetBtn,
+                {
+                  backgroundColor: colors.accent,
+                  borderRadius: borderRadius.md,
+                },
+              ]}
+              onPress={() => {
+                setCreateError(null);
+                setShowCreateModal(true);
+              }}
+              accessibilityLabel="Create Category Budget"
+            >
+              <Ionicons name="add" size={18} color="#FFFFFF" style={{ marginRight: 4 }} />
+              <Text style={styles.addBudgetBtnText}>Set Budget</Text>
+            </TouchableOpacity>
+          ) : undefined
+        }
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Overspending Alert Banner (Requirement 4: Show overspending warnings) */}
+        {overspentBudgets.length > 0 && (
+          <View
+            style={[
+              styles.overspendingBanner,
+              {
+                backgroundColor: colors.dangerLight,
+                borderColor: colors.danger,
+                borderRadius: borderRadius.lg,
+              },
+            ]}
+          >
+            <Ionicons name="warning" size={24} color={colors.danger} style={{ marginRight: 12 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.bannerTitle, { color: colors.danger }]}>
+                Overspending Warning ({overspentBudgets.length} {overspentBudgets.length === 1 ? 'Category' : 'Categories'})
+              </Text>
+              <Text style={[styles.bannerSub, { color: colors.textPrimary }]}>
+                {overspentBudgets.map((b) => `${b.categoryName} by $${Math.abs(b.remainingAmount).toFixed(2)}`).join(', ')}.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* 80%-100% Caution Banner */}
+        {warningBudgets.length > 0 && overspentBudgets.length === 0 && (
+          <View
+            style={[
+              styles.overspendingBanner,
+              {
+                backgroundColor: colors.warningLight,
+                borderColor: colors.warning,
+                borderRadius: borderRadius.lg,
+              },
+            ]}
+          >
+            <Ionicons name="alert-circle" size={22} color={colors.warning} style={{ marginRight: 10 }} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.bannerTitle, { color: colors.warning }]}>
+                Budget Alert: Near Limit (&gt; 80%)
+              </Text>
+              <Text style={[styles.bannerSub, { color: colors.textPrimary }]}>
+                {warningBudgets.map((b) => `${b.categoryName} (${b.percentage.toFixed(0)}%)`).join(', ')}.
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Master Monthly Budget Summary Card */}
         <Card style={[styles.masterCard, { backgroundColor: colors.surface }]}>
           <View style={styles.masterHeader}>
@@ -141,7 +272,7 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
                   { color: overallRemaining > 0 ? colors.accentLight : colors.danger },
                 ]}
               >
-                {overallRemaining > 0 ? 'On Track' : 'Exceeded'}
+                {overallRemaining > 0 ? 'On Track' : 'Cap Exceeded'}
               </Text>
             </View>
           </View>
@@ -153,7 +284,7 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
             Category Allowances
           </Text>
           <Text style={[styles.sectionCount, { color: colors.textMuted }]}>
-            {budgets.length} in SQLite
+            {budgets.length} monitored in SQLite
           </Text>
         </View>
 
@@ -204,7 +335,7 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
                       </Text>
                     </View>
 
-                    {/* Progress Bar */}
+                    {/* Progress Bar with utilization */}
                     <View style={{ marginVertical: 8 }}>
                       <ProgressBar progress={ratio} height={6} autoThresholdColor />
                     </View>
@@ -227,6 +358,106 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
           })
         )}
       </ScrollView>
+
+      {/* Create New Category Budget Modal */}
+      <Modal
+        visible={showCreateModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCreateModal(false)}
+      >
+        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                borderRadius: borderRadius.xl,
+              },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Create Category Budget</Text>
+              <TouchableOpacity onPress={() => setShowCreateModal(false)}>
+                <Ionicons name="close" size={22} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+              Set a monthly spending limit for {currentMonthName} {currentYear}
+            </Text>
+
+            {/* Category Picker */}
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>SELECT CATEGORY</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {unbudgetedCats.map((cat) => {
+                  const isSelected = selectedCreateCatId === cat.id;
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={[
+                        styles.catPill,
+                        {
+                          backgroundColor: isSelected ? `${cat.color}25` : colors.surfaceElevated,
+                          borderColor: isSelected ? cat.color : colors.border,
+                          borderRadius: borderRadius.md,
+                        },
+                      ]}
+                      onPress={() => setSelectedCreateCatId(cat.id)}
+                    >
+                      <Ionicons name={cat.icon as any} size={15} color={isSelected ? cat.color : colors.textMuted} />
+                      <Text
+                        style={[
+                          styles.catPillText,
+                          { color: isSelected ? cat.color : colors.textPrimary, fontWeight: isSelected ? '700' : '500' },
+                        ]}
+                      >
+                        {cat.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+
+            {/* Monthly Limit Input */}
+            <View style={styles.modalInputWrapper}>
+              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>MONTHLY LIMIT ($)</Text>
+              <TextInput
+                style={[
+                  styles.modalInput,
+                  {
+                    backgroundColor: colors.surfaceElevated,
+                    borderColor: createError ? colors.danger : colors.border,
+                    color: colors.textPrimary,
+                    borderRadius: borderRadius.md,
+                  },
+                ]}
+                placeholder="e.g. 500.00"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="decimal-pad"
+                value={createLimitInput}
+                onChangeText={setCreateLimitInput}
+              />
+              {createError && (
+                <Text style={[styles.errorSub, { color: colors.danger }]}>{createError}</Text>
+              )}
+            </View>
+
+            <View style={styles.modalActions}>
+              <Button title="Save Budget to SQLite" onPress={handleCreateBudget} />
+              <Button
+                title="Cancel"
+                variant="ghost"
+                onPress={() => setShowCreateModal(false)}
+                style={{ marginTop: 6 }}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Edit Budget Limit Modal */}
       {editingBudget && (
@@ -282,6 +513,12 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
               <View style={styles.modalActions}>
                 <Button title="Save to SQLite" onPress={handleSaveBudgetLimit} />
                 <Button
+                  title="Remove Budget"
+                  variant="danger"
+                  onPress={() => handleDeleteBudget(editingBudget.id)}
+                  style={{ marginTop: 6 }}
+                />
+                <Button
                   title="Cancel"
                   variant="ghost"
                   onPress={() => setEditingBudget(null)}
@@ -303,6 +540,32 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 110,
+  },
+  addBudgetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  addBudgetBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  overspendingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  bannerTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  bannerSub: {
+    fontSize: 12,
+    marginTop: 2,
   },
   masterCard: {
     padding: 20,
@@ -439,6 +702,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     fontSize: 16,
     fontWeight: '700',
+  },
+  errorSub: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  catPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderWidth: 1,
+    gap: 6,
+  },
+  catPillText: {
+    fontSize: 12,
   },
   modalActions: {
     marginTop: 8,

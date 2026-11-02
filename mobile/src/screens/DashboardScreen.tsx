@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,16 +10,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Card } from '../components/Card';
 import { Header } from '../components/Header';
-import { OfflineAiBadge } from '../components/OfflineAiBadge';
 import { QuickActionButton } from '../components/QuickActionButton';
 import { ExpenseBreakdownBar } from '../components/ExpenseBreakdownBar';
 import { StatusBadge } from '../components/StatusBadge';
 import { useTheme } from '../theme';
-import {
-  CATEGORY_BREAKDOWN,
-  CATEGORIES,
-} from '../data/mockData';
+import { CATEGORIES } from '../data/mockData';
 import { MainTabType, Transaction } from '../types';
+import { getCategoryWiseTotals, getFinancialSummary } from '../database';
+import { CategoryBreakdown } from '../types';
 
 interface DashboardScreenProps {
   onNavigate: (tab: MainTabType) => void;
@@ -36,25 +34,60 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 }) => {
   const { colors, borderRadius } = useTheme();
   const [showBalance, setShowBalance] = useState(true);
+  const [categoryBreakdowns, setCategoryBreakdowns] = useState<CategoryBreakdown[]>([]);
+  const [monthlyIncome, setMonthlyIncome] = useState(0);
+  const [monthlyExpense, setMonthlyExpense] = useState(0);
 
-  // Compute live metrics from SQLite transactions
-  const totalIncome = transactions
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonthStr = String(now.getMonth() + 1).padStart(2, '0');
+  const monthStartDate = `${currentYear}-${currentMonthStr}-01`;
+
+  // Deterministically fetch current month stats and category breakdown from SQLite
+  const loadDashboardMetrics = useCallback(async () => {
+    try {
+      const summary = await getFinancialSummary(monthStartDate);
+      setMonthlyIncome(summary.totalIncome);
+      setMonthlyExpense(summary.totalExpenses);
+
+      const catTotals = await getCategoryWiseTotals('expense', monthStartDate);
+      const mappedBreakdowns: CategoryBreakdown[] = catTotals.map((c) => ({
+        category: c.categoryId as any,
+        name: c.categoryName,
+        amount: c.totalAmount,
+        percentage: c.percentage,
+        color: c.color,
+        icon: c.icon,
+      }));
+      setCategoryBreakdowns(mappedBreakdowns);
+    } catch (err) {
+      console.error('[LOAD_DASHBOARD_METRICS_ERROR]', err);
+    }
+  }, [monthStartDate]);
+
+  useEffect(() => {
+    loadDashboardMetrics();
+  }, [loadDashboardMetrics, transactions]);
+
+  // Overall all-time net worth calculation (deterministic)
+  const allTimeIncome = transactions
     .filter((t) => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const totalExpense = transactions
+  const allTimeExpense = transactions
     .filter((t) => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const netBalance = totalIncome - totalExpense;
-  const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0;
+  const netBalance = allTimeIncome - allTimeExpense;
+  const currentMonthSavings = monthlyIncome - monthlyExpense;
+  const savingsRate = monthlyIncome > 0 ? (currentMonthSavings / monthlyIncome) * 100 : 0;
   const recentTransactions = transactions.slice(0, 5);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <Header
         title="Portfolio"
-        subtitle="SLM-Powered Financial Overview"
+        subtitle="Personal Finance Ledger (SQLite)"
         rightAction={
           <View style={{ flexDirection: 'row', gap: 6 }}>
             {onOpenDbDiagnostics && (
@@ -80,10 +113,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   borderColor: colors.border,
                 },
               ]}
-              onPress={() => onNavigate('assistant')}
-              accessibilityLabel="AI Assistant"
+              onPress={() => onNavigate('analytics')}
+              accessibilityLabel="Analytics & Charts"
             >
-              <Ionicons name="sparkles" size={17} color={colors.aiAccentGlow} />
+              <Ionicons name="stats-chart-outline" size={17} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
         }
@@ -95,7 +128,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       >
         {/* Offline Status & SQLite Health Row */}
         <View style={styles.badgeRow}>
-          <OfflineAiBadge onPress={() => onNavigate('assistant')} />
+          <View
+            style={[
+              styles.offlinePill,
+              {
+                backgroundColor: colors.surfaceElevated,
+                borderColor: colors.border,
+                borderRadius: borderRadius.full,
+              },
+            ]}
+          >
+            <View style={[styles.dot, { backgroundColor: colors.success }]} />
+            <Text style={[styles.offlinePillText, { color: colors.textSecondary }]}>
+              Mode: <Text style={{ fontWeight: '700', color: colors.textPrimary }}>100% Offline</Text>
+            </Text>
+          </View>
+
           {onOpenDbDiagnostics && (
             <TouchableOpacity
               onPress={onOpenDbDiagnostics}
@@ -108,18 +156,18 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 },
               ]}
             >
-              <View style={[styles.dot, { backgroundColor: colors.success }]} />
+              <Ionicons name="shield-checkmark-outline" size={13} color={colors.success} style={{ marginRight: 4 }} />
               <Text style={[styles.dbPillText, { color: colors.textSecondary }]}>
-                SQLite: <Text style={{ fontWeight: '700', color: colors.success }}>WAL Active</Text>
+                SQLite: <Text style={{ fontWeight: '700', color: colors.success }}>WAL Encrypted Local</Text>
               </Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Master Balance Card */}
+        {/* Master Net Balance Card */}
         <Card style={[styles.balanceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.balanceHeader}>
-            <Text style={[styles.balanceCaption, { color: colors.textMuted }]}>TOTAL NET WORTH</Text>
+            <Text style={[styles.balanceCaption, { color: colors.textMuted }]}>TOTAL NET BALANCE</Text>
             <TouchableOpacity
               onPress={() => setShowBalance(!showBalance)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -136,15 +184,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             {showBalance ? `$${netBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '••••••••'}
           </Text>
 
-          {/* Metric Sub-cards */}
+          {/* Current Month Metrics Grid */}
           <View style={[styles.metricsGrid, { borderTopColor: colors.borderSubtle }]}>
             <View style={styles.metricColumn}>
               <View style={styles.metricLabelGroup}>
                 <View style={[styles.indicatorDot, { backgroundColor: colors.success }]} />
-                <Text style={[styles.metricLabel, { color: colors.textMuted }]}>Income</Text>
+                <Text style={[styles.metricLabel, { color: colors.textMuted }]}>This Month In</Text>
               </View>
               <Text style={[styles.metricNumber, { color: colors.success }]}>
-                +${totalIncome.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                +${monthlyIncome.toLocaleString('en-US', { minimumFractionDigits: 2 })}
               </Text>
             </View>
 
@@ -153,10 +201,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <View style={styles.metricColumn}>
               <View style={styles.metricLabelGroup}>
                 <View style={[styles.indicatorDot, { backgroundColor: colors.danger }]} />
-                <Text style={[styles.metricLabel, { color: colors.textMuted }]}>Expenses</Text>
+                <Text style={[styles.metricLabel, { color: colors.textMuted }]}>This Month Out</Text>
               </View>
               <Text style={[styles.metricNumber, { color: colors.danger }]}>
-                -${totalExpense.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                -${monthlyExpense.toLocaleString('en-US', { minimumFractionDigits: 2 })}
               </Text>
             </View>
 
@@ -167,7 +215,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 <View style={[styles.indicatorDot, { backgroundColor: colors.accent }]} />
                 <Text style={[styles.metricLabel, { color: colors.textMuted }]}>Savings</Text>
               </View>
-              <Text style={[styles.metricNumber, { color: colors.textPrimary }]}>
+              <Text
+                style={[
+                  styles.metricNumber,
+                  { color: savingsRate >= 0 ? colors.textPrimary : colors.danger },
+                ]}
+              >
                 {savingsRate.toFixed(1)}%
               </Text>
             </View>
@@ -195,30 +248,36 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             onPress={() => onNavigate('budgets')}
           />
           <QuickActionButton
-            label="Ask AI"
-            icon="sparkles"
+            label="Analytics"
+            icon="stats-chart-outline"
             accentColor={colors.aiAccentGlow}
-            onPress={() => onNavigate('assistant')}
+            onPress={() => onNavigate('analytics')}
           />
         </View>
 
-        {/* Spending Breakdown Section */}
+        {/* Dynamic Spending Breakdown Section */}
         <Card style={{ marginVertical: 8 }}>
           <View style={styles.sectionHeader}>
             <View>
               <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                Expense Breakdown
+                Monthly Expense Breakdown
               </Text>
               <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>
-                Stored locally in SQLite database
+                Aggregated deterministically from SQLite
               </Text>
             </View>
             <TouchableOpacity onPress={() => onNavigate('analytics')}>
-              <Text style={[styles.seeAllText, { color: colors.accent }]}>Analytics →</Text>
+              <Text style={[styles.seeAllText, { color: colors.accent }]}>View All →</Text>
             </TouchableOpacity>
           </View>
 
-          <ExpenseBreakdownBar categories={CATEGORY_BREAKDOWN} />
+          {categoryBreakdowns.length > 0 ? (
+            <ExpenseBreakdownBar categories={categoryBreakdowns} />
+          ) : (
+            <View style={{ paddingVertical: 14, alignItems: 'center' }}>
+              <Text style={{ color: colors.textMuted, fontSize: 13 }}>No expenses recorded this month yet</Text>
+            </View>
+          )}
         </Card>
 
         {/* Recent Transactions Section */}
@@ -232,7 +291,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </View>
 
         {recentTransactions.map((tx) => {
-          const categoryMeta = CATEGORIES[tx.category] || CATEGORIES.misc;
+          const categoryMeta = CATEGORIES[tx.category] || {
+            id: tx.category,
+            name: tx.category,
+            icon: 'folder-outline',
+            color: '#3B82F6',
+            type: tx.type,
+          };
           const isIncome = tx.type === 'income';
 
           return (
@@ -322,6 +387,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
   },
+  offlinePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+  },
   dbPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -334,6 +406,9 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     marginRight: 6,
+  },
+  offlinePillText: {
+    fontSize: 11,
   },
   dbPillText: {
     fontSize: 11,

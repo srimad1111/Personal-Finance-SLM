@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,6 +6,7 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../components/Header';
@@ -14,31 +15,80 @@ import { TrendChart } from '../components/TrendChart';
 import { ProgressBar } from '../components/ProgressBar';
 import { StatusBadge } from '../components/StatusBadge';
 import { useTheme } from '../theme';
-import {
-  MONTHLY_SPENDING_TRENDS,
-  CATEGORY_BREAKDOWN,
-} from '../data/mockData';
+import { getMonthlyTrends, getCategoryWiseTotals } from '../database';
+import { MonthlyTrend, CategorySpendingSummary } from '../types/database';
 
 export const AnalyticsScreen: React.FC = () => {
   const { colors, borderRadius } = useTheme();
 
   const [timeframe, setTimeframe] = useState<'6M' | '3M' | '1M'>('6M');
+  const [trends, setTrends] = useState<MonthlyTrend[]>([]);
+  const [categoryBreakdown, setCategoryBreakdown] = useState<CategorySpendingSummary[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Trend computations
-  const currentMonthData = MONTHLY_SPENDING_TRENDS[MONTHLY_SPENDING_TRENDS.length - 1];
-  const previousMonthData = MONTHLY_SPENDING_TRENDS[MONTHLY_SPENDING_TRENDS.length - 2];
+  const loadAnalyticsData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const monthsLimit = timeframe === '6M' ? 6 : timeframe === '3M' ? 3 : 1;
+      const trendData = await getMonthlyTrends(monthsLimit);
 
-  const spendingDiff = currentMonthData.expense - previousMonthData.expense;
-  const isSpendingReduced = spendingDiff < 0;
+      // Category breakdown for selected timeframe
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      let startDate: string | undefined = undefined;
 
-  const total6MSavings = MONTHLY_SPENDING_TRENDS.reduce((sum, t) => sum + t.savings, 0);
-  const avgMonthlySavings = total6MSavings / MONTHLY_SPENDING_TRENDS.length;
+      if (timeframe === '1M') {
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        startDate = `${currentYear}-${m}-01`;
+      } else if (timeframe === '3M') {
+        const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+        const m = String(threeMonthsAgo.getMonth() + 1).padStart(2, '0');
+        startDate = `${threeMonthsAgo.getFullYear()}-${m}-01`;
+      } else {
+        const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+        const m = String(sixMonthsAgo.getMonth() + 1).padStart(2, '0');
+        startDate = `${sixMonthsAgo.getFullYear()}-${m}-01`;
+      }
+
+      const catData = await getCategoryWiseTotals('expense', startDate);
+
+      setTrends(trendData);
+      setCategoryBreakdown(catData);
+    } catch (err) {
+      console.error('[LOAD_ANALYTICS_ERROR]', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [timeframe]);
+
+  useEffect(() => {
+    loadAnalyticsData();
+  }, [loadAnalyticsData]);
+
+  // Deterministic math calculations
+  const totalIncome = trends.reduce((sum, t) => sum + t.income, 0);
+  const totalExpense = trends.reduce((sum, t) => sum + t.expense, 0);
+  const totalSavings = totalIncome - totalExpense;
+  const avgMonthlySavings = trends.length > 0 ? totalSavings / trends.length : 0;
+  const savingsRate = totalIncome > 0 ? (totalSavings / totalIncome) * 100 : 0;
+
+  // Month-over-month comparison
+  const currentMonthData = trends[trends.length - 1];
+  const previousMonthData = trends.length > 1 ? trends[trends.length - 2] : null;
+
+  let spendingChangePct = 0;
+  let isSpendingReduced = true;
+  if (currentMonthData && previousMonthData && previousMonthData.expense > 0) {
+    const diff = currentMonthData.expense - previousMonthData.expense;
+    spendingChangePct = (Math.abs(diff) / previousMonthData.expense) * 100;
+    isSpendingReduced = diff <= 0;
+  }
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <Header
         title="Analytics"
-        subtitle="Spending Patterns & Intelligence"
+        subtitle="Spending Patterns (Deterministic SQLite)"
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -76,130 +126,171 @@ export const AnalyticsScreen: React.FC = () => {
                     },
                   ]}
                 >
-                  {tf === '6M' ? 'Last 6 Months' : tf === '3M' ? 'Quarter' : 'Current Month'}
+                  {tf === '6M' ? 'Last 6 Months' : tf === '3M' ? 'Quarter (3M)' : 'Current Month'}
                 </Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        {/* Income vs Expense Trend Chart Card */}
-        <Card style={styles.chartCard}>
-          <View style={styles.cardHeader}>
-            <View>
-              <Text style={[styles.chartTitle, { color: colors.textPrimary }]}>
-                Income vs Expenses
-              </Text>
-              <Text style={[styles.chartSubtitle, { color: colors.textMuted }]}>
-                Monthly comparison across 2026
-              </Text>
-            </View>
-            <StatusBadge
-              label={isSpendingReduced ? 'Spending ↓ 40%' : 'Spending ↑'}
-              status={isSpendingReduced ? 'success' : 'warning'}
-            />
-          </View>
+        {isLoading ? (
+          <ActivityIndicator size="small" color={colors.accent} style={{ marginVertical: 30 }} />
+        ) : (
+          <>
+            {/* Income vs Expense Trend Chart Card */}
+            <Card style={styles.chartCard}>
+              <View style={styles.cardHeader}>
+                <View>
+                  <Text style={[styles.chartTitle, { color: colors.textPrimary }]}>
+                    Income vs Expenses
+                  </Text>
+                  <Text style={[styles.chartSubtitle, { color: colors.textMuted }]}>
+                    Calculated from local SQLite ledger
+                  </Text>
+                </View>
+                {previousMonthData && (
+                  <StatusBadge
+                    label={isSpendingReduced ? `Spending ↓ ${spendingChangePct.toFixed(0)}%` : `Spending ↑ ${spendingChangePct.toFixed(0)}%`}
+                    status={isSpendingReduced ? 'success' : 'warning'}
+                  />
+                )}
+              </View>
 
-          <TrendChart trends={MONTHLY_SPENDING_TRENDS} />
-        </Card>
+              {trends.length > 0 ? (
+                <TrendChart trends={trends} />
+              ) : (
+                <View style={styles.noDataBox}>
+                  <Text style={[styles.noDataText, { color: colors.textMuted }]}>
+                    Insufficient monthly records to plot trend
+                  </Text>
+                </View>
+              )}
+            </Card>
 
-        {/* Savings Performance Metric Card */}
-        <Card style={{ marginVertical: 6 }}>
-          <View style={styles.savingsHeader}>
-            <View>
-              <Text style={[styles.statLabel, { color: colors.textMuted }]}>
-                AVERAGE MONTHLY SAVINGS
-              </Text>
-              <Text style={[styles.statValue, { color: colors.success }]}>
-                ${avgMonthlySavings.toFixed(2)}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.savingsBadgeCircle,
-                { backgroundColor: colors.successLight, borderRadius: borderRadius.full },
-              ]}
-            >
-              <Ionicons name="trending-up" size={24} color={colors.success} />
-            </View>
-          </View>
-
-          <View style={[styles.savingsMetricsGrid, { borderTopColor: colors.borderSubtle }]}>
-            <View style={styles.savingsMetricCol}>
-              <Text style={[styles.savingsSubLabel, { color: colors.textMuted }]}>Total 6M Saved</Text>
-              <Text style={[styles.savingsSubValue, { color: colors.textPrimary }]}>
-                ${total6MSavings.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-              </Text>
-            </View>
-            <View style={[styles.dividerVertical, { backgroundColor: colors.borderSubtle }]} />
-            <View style={styles.savingsMetricCol}>
-              <Text style={[styles.savingsSubLabel, { color: colors.textMuted }]}>Peak Inflow</Text>
-              <Text style={[styles.savingsSubValue, { color: colors.textPrimary }]}>$7,450.00 (Oct)</Text>
-            </View>
-          </View>
-        </Card>
-
-        {/* Category-wise Spending Breakdown */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-            Category Spending Distribution
-          </Text>
-          <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>
-            Ranked by total outflow
-          </Text>
-        </View>
-
-        {CATEGORY_BREAKDOWN.map((cat) => {
-          return (
-            <Card key={cat.category} style={styles.categoryBreakdownCard}>
-              <View style={styles.catBreakdownRow}>
-                {/* Category Icon */}
+            {/* Savings Performance Metric Card */}
+            <Card style={{ marginVertical: 6 }}>
+              <View style={styles.savingsHeader}>
+                <View>
+                  <Text style={[styles.statLabel, { color: colors.textMuted }]}>
+                    AVERAGE MONTHLY SAVINGS
+                  </Text>
+                  <Text
+                    style={[
+                      styles.statValue,
+                      { color: avgMonthlySavings >= 0 ? colors.success : colors.danger },
+                    ]}
+                  >
+                    ${avgMonthlySavings.toFixed(2)}
+                  </Text>
+                </View>
                 <View
                   style={[
-                    styles.catIconBox,
+                    styles.savingsBadgeCircle,
                     {
-                      backgroundColor: `${cat.color}20`,
-                      borderRadius: borderRadius.md,
+                      backgroundColor: avgMonthlySavings >= 0 ? colors.successLight : colors.dangerLight,
+                      borderRadius: borderRadius.full,
                     },
                   ]}
                 >
-                  <Ionicons name={cat.icon as any} size={18} color={cat.color} />
+                  <Ionicons
+                    name={avgMonthlySavings >= 0 ? 'trending-up' : 'trending-down'}
+                    size={24}
+                    color={avgMonthlySavings >= 0 ? colors.success : colors.danger}
+                  />
                 </View>
+              </View>
 
-                {/* Details */}
-                <View style={styles.catBreakdownInfo}>
-                  <View style={styles.catTopRow}>
-                    <Text style={[styles.catBreakdownName, { color: colors.textPrimary }]}>
-                      {cat.name}
-                    </Text>
-                    <Text style={[styles.catBreakdownAmount, { color: colors.textPrimary }]}>
-                      ${cat.amount.toFixed(2)}
-                    </Text>
-                  </View>
-
-                  {/* Progress Bar */}
-                  <View style={{ marginVertical: 6 }}>
-                    <ProgressBar
-                      progress={cat.percentage / 100}
-                      color={cat.color}
-                      height={6}
-                      autoThresholdColor={false}
-                    />
-                  </View>
-
-                  <View style={styles.catBottomRow}>
-                    <Text style={[styles.catPercentageText, { color: colors.textMuted }]}>
-                      {cat.percentage.toFixed(1)}% of total expenses
-                    </Text>
-                    <Text style={[styles.catStatusText, { color: cat.color }]}>
-                      {cat.percentage > 25 ? 'High Impact' : 'Normal'}
-                    </Text>
-                  </View>
+              <View style={[styles.savingsMetricsGrid, { borderTopColor: colors.borderSubtle }]}>
+                <View style={styles.savingsMetricCol}>
+                  <Text style={[styles.savingsSubLabel, { color: colors.textMuted }]}>Net Savings</Text>
+                  <Text
+                    style={[
+                      styles.savingsSubValue,
+                      { color: totalSavings >= 0 ? colors.success : colors.danger },
+                    ]}
+                  >
+                    ${totalSavings.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </Text>
+                </View>
+                <View style={[styles.dividerVertical, { backgroundColor: colors.borderSubtle }]} />
+                <View style={styles.savingsMetricCol}>
+                  <Text style={[styles.savingsSubLabel, { color: colors.textMuted }]}>Savings Rate</Text>
+                  <Text style={[styles.savingsSubValue, { color: colors.textPrimary }]}>
+                    {savingsRate.toFixed(1)}%
+                  </Text>
                 </View>
               </View>
             </Card>
-          );
-        })}
+
+            {/* Category-wise Spending Breakdown */}
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                Category Spending Distribution
+              </Text>
+              <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>
+                Ranked by deterministic SQLite totals
+              </Text>
+            </View>
+
+            {categoryBreakdown.length === 0 ? (
+              <Card style={{ padding: 20, alignItems: 'center' }}>
+                <Text style={{ color: colors.textMuted }}>No expense transactions in this timeframe.</Text>
+              </Card>
+            ) : (
+              categoryBreakdown.map((cat) => {
+                return (
+                  <Card key={cat.categoryId} style={styles.categoryBreakdownCard}>
+                    <View style={styles.catBreakdownRow}>
+                      {/* Category Icon */}
+                      <View
+                        style={[
+                          styles.catIconBox,
+                          {
+                            backgroundColor: `${cat.color}20`,
+                            borderRadius: borderRadius.md,
+                          },
+                        ]}
+                      >
+                        <Ionicons name={cat.icon as any} size={18} color={cat.color} />
+                      </View>
+
+                      {/* Details */}
+                      <View style={styles.catBreakdownInfo}>
+                        <View style={styles.catTopRow}>
+                          <Text style={[styles.catBreakdownName, { color: colors.textPrimary }]}>
+                            {cat.categoryName}
+                          </Text>
+                          <Text style={[styles.catBreakdownAmount, { color: colors.textPrimary }]}>
+                            ${cat.totalAmount.toFixed(2)}
+                          </Text>
+                        </View>
+
+                        {/* Progress Bar */}
+                        <View style={{ marginVertical: 6 }}>
+                          <ProgressBar
+                            progress={cat.percentage / 100}
+                            color={cat.color}
+                            height={6}
+                            autoThresholdColor={false}
+                          />
+                        </View>
+
+                        <View style={styles.catBottomRow}>
+                          <Text style={[styles.catPercentageText, { color: colors.textMuted }]}>
+                            {cat.percentage.toFixed(1)}% of total ({cat.transactionCount} tx)
+                          </Text>
+                          <Text style={[styles.catStatusText, { color: cat.color }]}>
+                            {cat.percentage > 30 ? 'Primary Outflow' : 'Normal'}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </Card>
+                );
+              })
+            )}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -246,6 +337,13 @@ const styles = StyleSheet.create({
   chartSubtitle: {
     fontSize: 12,
     marginTop: 2,
+  },
+  noDataBox: {
+    paddingVertical: 30,
+    alignItems: 'center',
+  },
+  noDataText: {
+    fontSize: 13,
   },
   savingsHeader: {
     flexDirection: 'row',
@@ -349,4 +447,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

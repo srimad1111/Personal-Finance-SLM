@@ -8,7 +8,6 @@ import {
   TextInput,
   TouchableOpacity,
   Modal,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../components/Header';
@@ -19,15 +18,19 @@ import { useTheme } from '../theme';
 import { CATEGORIES } from '../data/mockData';
 import { Transaction } from '../types';
 
+type SortOption = 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc';
+
 interface TransactionsScreenProps {
   transactions: Transaction[];
   onOpenAddModal: () => void;
+  onEditTransaction?: (tx: Transaction) => void;
   onDeleteTransaction?: (id: string) => void;
 }
 
 export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
   transactions,
   onOpenAddModal,
+  onEditTransaction,
   onDeleteTransaction,
 }) => {
   const { colors, borderRadius } = useTheme();
@@ -35,18 +38,17 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>('date_desc');
+  const [showSortModal, setShowSortModal] = useState(false);
   const [inspectTx, setInspectTx] = useState<Transaction | null>(null);
 
-  // Filter transactions
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter((tx) => {
-      // Type filter
+  // Deterministic Filtering and Sorting
+  const processedTransactions = useMemo(() => {
+    // 1. Filter
+    const filtered = transactions.filter((tx) => {
       if (selectedFilter !== 'all' && tx.type !== selectedFilter) return false;
-
-      // Category filter
       if (selectedCategory && tx.category !== selectedCategory) return false;
 
-      // Search query
       if (searchQuery.trim().length > 0) {
         const q = searchQuery.toLowerCase();
         const merchantMatch = tx.merchant?.toLowerCase().includes(q);
@@ -57,14 +59,30 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
 
       return true;
     });
-  }, [transactions, selectedFilter, selectedCategory, searchQuery]);
 
-  // Income and Expense Totals for the current filtered view
-  const currentTotalIncome = filteredTransactions
+    // 2. Deterministic Sort
+    return filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'date_desc':
+          return b.date.localeCompare(a.date) || b.timestamp - a.timestamp;
+        case 'date_asc':
+          return a.date.localeCompare(b.date) || a.timestamp - b.timestamp;
+        case 'amount_desc':
+          return b.amount - a.amount;
+        case 'amount_asc':
+          return a.amount - b.amount;
+        default:
+          return b.timestamp - a.timestamp;
+      }
+    });
+  }, [transactions, selectedFilter, selectedCategory, searchQuery, sortBy]);
+
+  // Real deterministic sums for the filtered view
+  const currentTotalIncome = processedTransactions
     .filter((t) => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const currentTotalExpense = filteredTransactions
+  const currentTotalExpense = processedTransactions
     .filter((t) => t.type === 'expense')
     .reduce((sum, t) => sum + t.amount, 0);
 
@@ -74,25 +92,61 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
     setInspectTx(null);
   };
 
+  const handleEdit = (tx: Transaction) => {
+    setInspectTx(null);
+    if (onEditTransaction) {
+      onEditTransaction(tx);
+    }
+  };
+
+  const getSortLabel = (s: SortOption): string => {
+    switch (s) {
+      case 'date_desc':
+        return 'Date: Newest';
+      case 'date_asc':
+        return 'Date: Oldest';
+      case 'amount_desc':
+        return 'Amount: High to Low';
+      case 'amount_asc':
+        return 'Amount: Low to High';
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <Header
         title="Transactions"
-        subtitle={`${filteredTransactions.length} recorded in SQLite`}
+        subtitle={`${processedTransactions.length} recorded in SQLite`}
         rightAction={
-          <TouchableOpacity
-            style={[
-              styles.addButton,
-              {
-                backgroundColor: colors.accent,
-                borderRadius: borderRadius.md,
-              },
-            ]}
-            onPress={onOpenAddModal}
-            accessibilityLabel="Add Transaction"
-          >
-            <Ionicons name="add" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity
+              style={[
+                styles.iconBtn,
+                {
+                  backgroundColor: colors.surfaceElevated,
+                  borderColor: colors.border,
+                  borderRadius: borderRadius.md,
+                },
+              ]}
+              onPress={() => setShowSortModal(true)}
+              accessibilityLabel="Sort Transactions"
+            >
+              <Ionicons name="swap-vertical-outline" size={18} color={colors.textPrimary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.iconBtn,
+                {
+                  backgroundColor: colors.accent,
+                  borderRadius: borderRadius.md,
+                },
+              ]}
+              onPress={onOpenAddModal}
+              accessibilityLabel="Add Transaction"
+            >
+              <Ionicons name="add" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         }
       />
 
@@ -125,9 +179,29 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
         </View>
       </View>
 
-      {/* Filter Tabs & Category Pills */}
+      {/* Filter Tabs & Active Sort Chip */}
       <View style={styles.filtersWrapper}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+          {/* Active Sort Pill */}
+          <TouchableOpacity
+            style={[
+              styles.filterChip,
+              {
+                backgroundColor: colors.surfaceElevated,
+                borderColor: colors.accent,
+                borderRadius: borderRadius.full,
+              },
+            ]}
+            onPress={() => setShowSortModal(true)}
+          >
+            <Ionicons name="filter-outline" size={12} color={colors.accent} style={{ marginRight: 4 }} />
+            <Text style={[styles.filterChipText, { color: colors.accent, fontWeight: '700' }]}>
+              {getSortLabel(sortBy)}
+            </Text>
+          </TouchableOpacity>
+
+          <View style={[styles.filterDivider, { backgroundColor: colors.borderSubtle }]} />
+
           {/* Type filters */}
           {(['all', 'expense', 'income'] as const).map((filter) => {
             const isActive = selectedFilter === filter;
@@ -161,7 +235,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
 
           <View style={[styles.filterDivider, { backgroundColor: colors.borderSubtle }]} />
 
-          {/* Category Pills */}
+          {/* Category Filter Pills */}
           {selectedCategory && (
             <TouchableOpacity
               style={[
@@ -233,11 +307,23 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
             -${currentTotalExpense.toFixed(2)}
           </Text>
         </View>
+        <View style={[styles.stripDivider, { backgroundColor: colors.border }]} />
+        <View style={styles.summaryItem}>
+          <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>NET</Text>
+          <Text
+            style={[
+              styles.summaryValue,
+              { color: currentTotalIncome >= currentTotalExpense ? colors.textPrimary : colors.danger },
+            ]}
+          >
+            ${(currentTotalIncome - currentTotalExpense).toFixed(2)}
+          </Text>
+        </View>
       </View>
 
       {/* Transaction List */}
       <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-        {filteredTransactions.length === 0 ? (
+        {processedTransactions.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="receipt-outline" size={48} color={colors.textMuted} />
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No transactions found</Text>
@@ -246,7 +332,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
             </Text>
           </View>
         ) : (
-          filteredTransactions.map((tx) => {
+          processedTransactions.map((tx) => {
             const categoryMeta = CATEGORIES[tx.category] || CATEGORIES.misc;
             const isIncome = tx.type === 'income';
 
@@ -313,7 +399,67 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
         )}
       </ScrollView>
 
-      {/* Transaction Details & Delete Modal */}
+      {/* Sort Options Modal */}
+      <Modal
+        visible={showSortModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSortModal(false)}
+      >
+        <TouchableOpacity
+          style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}
+          activeOpacity={1}
+          onPress={() => setShowSortModal(false)}
+        >
+          <View
+            style={[
+              styles.sortModalCard,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                borderRadius: borderRadius.xl,
+              },
+            ]}
+          >
+            <Text style={[styles.sortModalTitle, { color: colors.textPrimary }]}>Sort Transactions</Text>
+            {(
+              [
+                ['date_desc', 'Date: Newest First'],
+                ['date_asc', 'Date: Oldest First'],
+                ['amount_desc', 'Amount: Highest First'],
+                ['amount_asc', 'Amount: Lowest First'],
+              ] as [SortOption, string][]
+            ).map(([val, label]) => {
+              const isSelected = sortBy === val;
+              return (
+                <TouchableOpacity
+                  key={val}
+                  style={[
+                    styles.sortOptionRow,
+                    isSelected && { backgroundColor: colors.surfaceElevated, borderRadius: borderRadius.md },
+                  ]}
+                  onPress={() => {
+                    setSortBy(val);
+                    setShowSortModal(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.sortOptionText,
+                      { color: isSelected ? colors.accent : colors.textPrimary, fontWeight: isSelected ? '700' : '500' },
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                  {isSelected && <Ionicons name="checkmark" size={18} color={colors.accent} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Transaction Details, Edit & Delete Modal */}
       {inspectTx && (
         <Modal
           visible={!!inspectTx}
@@ -398,15 +544,6 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                   <Text style={[styles.modalRowValue, { color: colors.textPrimary }]}>{inspectTx.date}</Text>
                 </View>
 
-                <View style={[styles.modalRow, { borderBottomColor: colors.borderSubtle }]}>
-                  <Text style={[styles.modalRowLabel, { color: colors.textMuted }]}>AI Classification</Text>
-                  <Text style={[styles.modalRowValue, { color: colors.aiAccentGlow }]}>
-                    {inspectTx.isAiCategorized
-                      ? `Local SLM (${((inspectTx.aiConfidence || 0.95) * 100).toFixed(0)}% confidence)`
-                      : 'Manual Entry'}
-                  </Text>
-                </View>
-
                 {inspectTx.notes && (
                   <View style={[styles.modalRow, { borderBottomWidth: 0 }]}>
                     <Text style={[styles.modalRowLabel, { color: colors.textMuted }]}>Notes</Text>
@@ -417,8 +554,16 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                 )}
               </View>
 
-              {/* Action Buttons */}
+              {/* Action Buttons: Edit, Delete, Close */}
               <View style={{ marginTop: 16, gap: 8 }}>
+                {onEditTransaction && (
+                  <Button
+                    title="Edit Transaction"
+                    icon="create-outline"
+                    variant="primary"
+                    onPress={() => handleEdit(inspectTx)}
+                  />
+                )}
                 {onDeleteTransaction && (
                   <Button
                     title="Delete Transaction"
@@ -429,7 +574,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                 )}
                 <Button
                   title="Close"
-                  variant="secondary"
+                  variant="ghost"
                   onPress={() => setInspectTx(null)}
                 />
               </View>
@@ -445,11 +590,12 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  addButton: {
+  iconBtn: {
     width: 36,
     height: 36,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
   },
   searchWrapper: {
     paddingHorizontal: 20,
@@ -516,7 +662,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   summaryValue: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
     marginTop: 2,
   },
@@ -588,6 +734,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
+  },
+  sortModalCard: {
+    width: '100%',
+    padding: 20,
+    borderWidth: 1,
+  },
+  sortModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 14,
+  },
+  sortOptionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  sortOptionText: {
+    fontSize: 14,
   },
   modalCard: {
     width: '100%',

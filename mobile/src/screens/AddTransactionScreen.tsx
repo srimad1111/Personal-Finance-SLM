@@ -14,87 +14,117 @@ import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../components/Header';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
-import { StatusBadge } from '../components/StatusBadge';
 import { useTheme } from '../theme';
 import { CATEGORIES } from '../data/mockData';
 import { Transaction, TransactionCategory, TransactionType } from '../types';
 
 interface AddTransactionScreenProps {
   initialType?: TransactionType;
-  onSave: (transaction: Omit<Transaction, 'id' | 'timestamp'>) => void;
+  editingTransaction?: Transaction | null;
+  onSave: (transaction: Omit<Transaction, 'id' | 'timestamp'>, editId?: string) => void;
   onClose: () => void;
 }
 
 export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
   initialType = 'expense',
+  editingTransaction,
   onSave,
   onClose,
 }) => {
   const { colors, borderRadius } = useTheme();
 
-  const [type, setType] = useState<TransactionType>(initialType);
-  const [amount, setAmount] = useState('');
-  const [merchant, setMerchant] = useState('');
-  const [description, setDescription] = useState('');
-  const [category, setCategory] = useState<TransactionCategory>('groceries');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [notes, setNotes] = useState('');
-  const [aiSuggestedCat, setAiSuggestedCat] = useState<TransactionCategory | null>(null);
+  const isEditing = !!editingTransaction;
 
-  // Simulated SLM zero-latency auto-categorization when typing merchant/description
-  useEffect(() => {
-    const text = `${merchant} ${description}`.toLowerCase();
-    if (!text.trim()) {
-      setAiSuggestedCat(null);
-      return;
-    }
+  const [type, setType] = useState<TransactionType>(
+    editingTransaction ? editingTransaction.type : initialType
+  );
+  const [amount, setAmount] = useState(
+    editingTransaction ? editingTransaction.amount.toString() : ''
+  );
+  const [merchant, setMerchant] = useState(
+    editingTransaction?.merchant || ''
+  );
+  const [description, setDescription] = useState(
+    editingTransaction?.description || ''
+  );
+  const [category, setCategory] = useState<TransactionCategory>(
+    editingTransaction ? editingTransaction.category : (initialType === 'income' ? 'salary' : 'groceries')
+  );
+  const [date, setDate] = useState(
+    editingTransaction ? editingTransaction.date : new Date().toISOString().split('T')[0]
+  );
+  const [notes, setNotes] = useState(editingTransaction?.notes || '');
 
-    if (text.includes('whole foods') || text.includes('trader') || text.includes('grocery') || text.includes('market') || text.includes('walmart')) {
-      setAiSuggestedCat('groceries');
-    } else if (text.includes('coffee') || text.includes('starbucks') || text.includes('restaurant') || text.includes('bistro') || text.includes('mcdonald')) {
-      setAiSuggestedCat('food_and_dining');
-    } else if (text.includes('uber') || text.includes('lyft') || text.includes('transit') || text.includes('gas') || text.includes('chevron')) {
-      setAiSuggestedCat('transportation');
-    } else if (text.includes('apple') || text.includes('amazon') || text.includes('nike') || text.includes('target') || text.includes('zara')) {
-      setAiSuggestedCat('shopping');
-    } else if (text.includes('rent') || text.includes('lease') || text.includes('mortgage') || text.includes('apartment')) {
-      setAiSuggestedCat('housing');
-    } else if (text.includes('netflix') || text.includes('spotify') || text.includes('cinema') || text.includes('steam')) {
-      setAiSuggestedCat('entertainment');
-    } else if (text.includes('electric') || text.includes('water') || text.includes('utility') || text.includes('power')) {
-      setAiSuggestedCat('utilities');
-    } else if (text.includes('salary') || text.includes('payroll') || text.includes('direct deposit')) {
-      setAiSuggestedCat('salary');
-      setType('income');
-    } else {
-      setAiSuggestedCat(null);
-    }
-  }, [merchant, description]);
+  // Validation Error States
+  const [amountError, setAmountError] = useState<string | null>(null);
+  const [dateError, setDateError] = useState<string | null>(null);
+  const [descriptionError, setDescriptionError] = useState<string | null>(null);
 
-  const handleApplyAiCategory = () => {
-    if (aiSuggestedCat) {
-      setCategory(aiSuggestedCat);
-    }
+  // Validate Date (YYYY-MM-DD) deterministically
+  const validateDate = (d: string): boolean => {
+    const regex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!regex.test(d)) return false;
+    const [y, m, day] = d.split('-').map(Number);
+    if (y < 2000 || y > 2100) return false;
+    if (m < 1 || m > 12) return false;
+    if (day < 1 || day > 31) return false;
+    // Check leap year / month day counts
+    const testDate = new Date(y, m - 1, day);
+    return (
+      testDate.getFullYear() === y &&
+      testDate.getMonth() === m - 1 &&
+      testDate.getDate() === day
+    );
   };
 
   const handleSave = () => {
-    const parsedAmount = parseFloat(amount.replace(/[^0-9.]/g, ''));
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      alert('Please enter a valid amount.');
-      return;
+    let isValid = true;
+
+    // 1. Validate Amount
+    const cleanAmountStr = amount.replace(/[^0-9.]/g, '');
+    const parsedAmount = parseFloat(cleanAmountStr);
+    if (!cleanAmountStr || isNaN(parsedAmount) || parsedAmount <= 0) {
+      setAmountError('Enter a valid amount greater than $0.00');
+      isValid = false;
+    } else if (!/^\d+(\.\d{1,2})?$/.test(cleanAmountStr)) {
+      setAmountError('Amount can have at most 2 decimal places');
+      isValid = false;
+    } else {
+      setAmountError(null);
     }
 
-    onSave({
-      type,
-      category,
-      amount: parsedAmount,
-      description: description.trim() || merchant.trim() || 'Untitled Transaction',
-      merchant: merchant.trim() || undefined,
-      date,
-      notes: notes.trim() || undefined,
-      isAiCategorized: !!aiSuggestedCat && category === aiSuggestedCat,
-      aiConfidence: aiSuggestedCat && category === aiSuggestedCat ? 0.96 : undefined,
-    });
+    // 2. Validate Date
+    if (!validateDate(date.trim())) {
+      setDateError('Enter a valid date in YYYY-MM-DD format');
+      isValid = false;
+    } else {
+      setDateError(null);
+    }
+
+    // 3. Validate Merchant or Description
+    const finalDesc = description.trim() || merchant.trim();
+    if (!finalDesc || finalDesc.length < 2) {
+      setDescriptionError('Provide a description or merchant name (min 2 chars)');
+      isValid = false;
+    } else {
+      setDescriptionError(null);
+    }
+
+    if (!isValid) return;
+
+    onSave(
+      {
+        type,
+        category,
+        amount: parsedAmount,
+        description: description.trim() || merchant.trim(),
+        merchant: merchant.trim() || undefined,
+        date: date.trim(),
+        notes: notes.trim() || undefined,
+        isAiCategorized: false,
+      },
+      editingTransaction?.id
+    );
   };
 
   const availableCategories = Object.values(CATEGORIES).filter((c) =>
@@ -108,8 +138,8 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
         style={{ flex: 1 }}
       >
         <Header
-          title="New Transaction"
-          subtitle="Saved to Local SQLite"
+          title={isEditing ? 'Edit Transaction' : 'New Transaction'}
+          subtitle={isEditing ? 'Update local SQLite record' : 'Saved directly to SQLite'}
           showThemeToggle={false}
           rightAction={
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -144,7 +174,9 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
               ]}
               onPress={() => {
                 setType('expense');
-                setCategory('groceries');
+                if (CATEGORIES[category]?.type !== 'expense') {
+                  setCategory('groceries');
+                }
               }}
             >
               <Text
@@ -170,7 +202,9 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
               ]}
               onPress={() => {
                 setType('income');
-                setCategory('salary');
+                if (CATEGORIES[category]?.type !== 'income') {
+                  setCategory('salary');
+                }
               }}
             >
               <Text
@@ -187,9 +221,9 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Amount Display & Input */}
+          {/* Amount Display & Input with Validation */}
           <Card style={[styles.amountCard, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.amountLabel, { color: colors.textMuted }]}>TRANSACTION AMOUNT</Text>
+            <Text style={[styles.amountLabel, { color: colors.textMuted }]}>TRANSACTION AMOUNT ($)</Text>
             <View style={styles.amountInputRow}>
               <Text
                 style={[
@@ -208,10 +242,16 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                 placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"
                 value={amount}
-                onChangeText={setAmount}
-                autoFocus
+                onChangeText={(val) => {
+                  setAmount(val);
+                  if (amountError) setAmountError(null);
+                }}
+                autoFocus={!isEditing}
               />
             </View>
+            {amountError && (
+              <Text style={[styles.errorText, { color: colors.danger }]}>{amountError}</Text>
+            )}
           </Card>
 
           {/* Merchant & Description */}
@@ -236,13 +276,15 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
             </View>
 
             <View style={[styles.inputGroup, { marginTop: 12 }]}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Description</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                Description <Text style={{ color: colors.danger }}>*</Text>
+              </Text>
               <TextInput
                 style={[
                   styles.textInput,
                   {
                     backgroundColor: colors.surfaceElevated,
-                    borderColor: colors.border,
+                    borderColor: descriptionError ? colors.danger : colors.border,
                     color: colors.textPrimary,
                     borderRadius: borderRadius.md,
                   },
@@ -250,38 +292,21 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                 placeholder="e.g. Weekly family groceries"
                 placeholderTextColor={colors.textMuted}
                 value={description}
-                onChangeText={setDescription}
+                onChangeText={(val) => {
+                  setDescription(val);
+                  if (descriptionError) setDescriptionError(null);
+                }}
               />
+              {descriptionError && (
+                <Text style={[styles.errorText, { color: colors.danger }]}>{descriptionError}</Text>
+              )}
             </View>
-
-            {/* AI Auto-Categorization Prompt Callout */}
-            {aiSuggestedCat && aiSuggestedCat !== category && (
-              <TouchableOpacity
-                onPress={handleApplyAiCategory}
-                style={[
-                  styles.aiSuggestionBox,
-                  {
-                    backgroundColor: colors.aiAccentLight,
-                    borderColor: colors.aiAccent,
-                    borderRadius: borderRadius.md,
-                  },
-                ]}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Ionicons name="sparkles" size={15} color={colors.aiAccentGlow} style={{ marginRight: 6 }} />
-                  <Text style={[styles.aiSuggestionText, { color: colors.aiAccentGlow }]}>
-                    SLM detected category: <Text style={{ fontWeight: '800' }}>{CATEGORIES[aiSuggestedCat]?.name}</Text>
-                  </Text>
-                </View>
-                <Text style={[styles.applyPill, { color: colors.accentLight }]}>Apply</Text>
-              </TouchableOpacity>
-            )}
           </Card>
 
           {/* Category Selector Grid */}
           <Card style={{ marginVertical: 6 }}>
             <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginBottom: 10 }]}>
-              Select Category
+              Select Category (Manual)
             </Text>
             <View style={styles.categoriesGrid}>
               {availableCategories.map((cat) => {
@@ -297,7 +322,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                         borderRadius: borderRadius.md,
                       },
                     ]}
-                    onPress={() => setCategory(cat.id)}
+                    onPress={() => setCategory(cat.id as TransactionCategory)}
                   >
                     <Ionicons
                       name={cat.icon as any}
@@ -325,20 +350,30 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
           {/* Date & Notes */}
           <Card style={{ marginVertical: 6 }}>
             <View style={styles.inputGroup}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Date (YYYY-MM-DD)</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+                Date (YYYY-MM-DD) <Text style={{ color: colors.danger }}>*</Text>
+              </Text>
               <TextInput
                 style={[
                   styles.textInput,
                   {
                     backgroundColor: colors.surfaceElevated,
-                    borderColor: colors.border,
+                    borderColor: dateError ? colors.danger : colors.border,
                     color: colors.textPrimary,
                     borderRadius: borderRadius.md,
                   },
                 ]}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={colors.textMuted}
                 value={date}
-                onChangeText={setDate}
+                onChangeText={(val) => {
+                  setDate(val);
+                  if (dateError) setDateError(null);
+                }}
               />
+              {dateError && (
+                <Text style={[styles.errorText, { color: colors.danger }]}>{dateError}</Text>
+              )}
             </View>
 
             <View style={[styles.inputGroup, { marginTop: 12 }]}>
@@ -366,7 +401,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
           {/* Action Buttons */}
           <View style={styles.actionsFooter}>
             <Button
-              title="Save to Local SQLite"
+              title={isEditing ? 'Update Transaction in SQLite' : 'Save to Local SQLite'}
               icon="checkmark-circle-outline"
               variant={type === 'income' ? 'primary' : 'danger'}
               size="lg"
@@ -464,20 +499,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlignVertical: 'top',
   },
-  aiSuggestionBox: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 10,
-    borderWidth: 1,
-    marginTop: 10,
-  },
-  aiSuggestionText: {
-    fontSize: 12,
-  },
-  applyPill: {
-    fontSize: 12,
-    fontWeight: '700',
+  errorText: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
   },
   categoriesGrid: {
     flexDirection: 'row',
@@ -500,4 +525,3 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 });
-

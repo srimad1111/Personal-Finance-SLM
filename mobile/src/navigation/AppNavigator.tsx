@@ -13,6 +13,7 @@ import {
   initializeDatabase,
   getAllTransactions,
   insertTransaction,
+  updateTransaction,
   deleteTransaction,
 } from '../database';
 import { useTheme } from '../theme';
@@ -25,15 +26,15 @@ export const AppNavigator: React.FC = () => {
   const [isLoadingDb, setIsLoadingDb] = useState<boolean>(true);
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [addModalInitialType, setAddModalInitialType] = useState<TransactionType>('expense');
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [showDbDiagnostics, setShowDbDiagnostics] = useState<boolean>(false);
 
-  // Load transactions from local SQLite database
+  // Load transactions deterministically from local SQLite database
   const loadDatabaseData = useCallback(async () => {
     try {
       await initializeDatabase();
       const records = await getAllTransactions();
 
-      // Map Database Entities to UI Transactions
       const mapped: Transaction[] = records.map((r) => ({
         id: r.id,
         type: r.transaction_type,
@@ -61,42 +62,53 @@ export const AppNavigator: React.FC = () => {
   }, [loadDatabaseData]);
 
   const handleOpenAddModal = (type: TransactionType = 'expense') => {
+    setEditingTransaction(null);
     setAddModalInitialType(type);
     setShowAddModal(true);
   };
 
-  const handleSaveTransaction = async (newTxData: Omit<Transaction, 'id' | 'timestamp'>) => {
+  const handleOpenEditModal = (tx: Transaction) => {
+    setEditingTransaction(tx);
+    setAddModalInitialType(tx.type);
+    setShowAddModal(true);
+  };
+
+  const handleSaveTransaction = async (
+    newTxData: Omit<Transaction, 'id' | 'timestamp'>,
+    editId?: string
+  ) => {
     try {
-      const inserted = await insertTransaction({
-        amount: newTxData.amount,
-        transaction_type: newTxData.type,
-        description: newTxData.description,
-        merchant: newTxData.merchant || null,
-        category: newTxData.category,
-        transaction_date: newTxData.date,
-        notes: newTxData.notes || null,
-        is_ai_categorized: newTxData.isAiCategorized ? 1 : 0,
-        ai_confidence: newTxData.aiConfidence || null,
-      });
+      if (editId) {
+        // Edit existing transaction in SQLite
+        await updateTransaction(editId, {
+          amount: newTxData.amount,
+          transaction_type: newTxData.type,
+          description: newTxData.description,
+          merchant: newTxData.merchant || null,
+          category: newTxData.category,
+          transaction_date: newTxData.date,
+          notes: newTxData.notes || null,
+        });
+      } else {
+        // Insert new transaction in SQLite
+        await insertTransaction({
+          amount: newTxData.amount,
+          transaction_type: newTxData.type,
+          description: newTxData.description,
+          merchant: newTxData.merchant || null,
+          category: newTxData.category,
+          transaction_date: newTxData.date,
+          notes: newTxData.notes || null,
+          is_ai_categorized: 0,
+          ai_confidence: null,
+        });
+      }
 
-      const newTx: Transaction = {
-        id: inserted.id,
-        type: inserted.transaction_type,
-        category: inserted.category as any,
-        amount: inserted.amount,
-        description: inserted.description,
-        merchant: inserted.merchant || undefined,
-        date: inserted.transaction_date,
-        timestamp: inserted.created_at,
-        notes: inserted.notes || undefined,
-        isAiCategorized: inserted.is_ai_categorized === 1,
-        aiConfidence: inserted.ai_confidence || undefined,
-      };
-
-      setTransactions((prev) => [newTx, ...prev]);
+      await loadDatabaseData();
       setShowAddModal(false);
+      setEditingTransaction(null);
     } catch (err) {
-      console.error('[INSERT_TRANSACTION_ERROR]', err);
+      console.error('[SAVE_TRANSACTION_ERROR]', err);
       alert('Failed to save transaction to local SQLite.');
     }
   };
@@ -105,7 +117,7 @@ export const AppNavigator: React.FC = () => {
     try {
       const success = await deleteTransaction(id);
       if (success) {
-        setTransactions((prev) => prev.filter((t) => t.id !== id));
+        await loadDatabaseData();
       }
     } catch (err) {
       console.error('[DELETE_TRANSACTION_ERROR]', err);
@@ -129,6 +141,7 @@ export const AppNavigator: React.FC = () => {
           <TransactionsScreen
             transactions={transactions}
             onOpenAddModal={() => handleOpenAddModal('expense')}
+            onEditTransaction={handleOpenEditModal}
             onDeleteTransaction={handleDeleteTransaction}
           />
         );
@@ -170,17 +183,24 @@ export const AppNavigator: React.FC = () => {
         onAddPress={() => handleOpenAddModal('expense')}
       />
 
-      {/* Add Transaction Modal */}
+      {/* Add / Edit Transaction Modal */}
       <Modal
         visible={showAddModal}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowAddModal(false)}
+        onRequestClose={() => {
+          setShowAddModal(false);
+          setEditingTransaction(null);
+        }}
       >
         <AddTransactionScreen
           initialType={addModalInitialType}
+          editingTransaction={editingTransaction}
           onSave={handleSaveTransaction}
-          onClose={() => setShowAddModal(false)}
+          onClose={() => {
+            setShowAddModal(false);
+            setEditingTransaction(null);
+          }}
         />
       </Modal>
 
