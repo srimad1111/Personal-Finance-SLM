@@ -1,88 +1,94 @@
-import * as SQLite from 'expo-sqlite';
-import { DB_NAME, CREATE_TRANSACTIONS_TABLE_SQL, CREATE_INDEX_SQL } from './schema';
-import { Transaction, FinancialSummary } from '../types';
+import { getDatabaseClient } from './client';
+import { TransactionRepository } from './repositories/transactionRepository';
+import { CategoryRepository } from './repositories/categoryRepository';
+import { BudgetRepository } from './repositories/budgetRepository';
+import { SettingsRepository } from './repositories/settingsRepository';
+import {
+  TransactionEntity,
+  TransactionFilter,
+  FinancialSummary,
+  CategorySpendingSummary,
+  BudgetProgressSummary,
+  SettingsEntity,
+} from '../types/database';
 
-let dbInstance: SQLite.SQLiteDatabase | null = null;
+export * from './client';
+export * from './schema';
+export * from './repositories/transactionRepository';
+export * from './repositories/categoryRepository';
+export * from './repositories/budgetRepository';
+export * from './repositories/settingsRepository';
 
-export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
-  if (!dbInstance) {
-    dbInstance = await SQLite.openDatabaseAsync(DB_NAME);
-    await initDatabase(dbInstance);
-  }
-  return dbInstance;
+// Singleton Repository Instances
+export const transactionRepository = new TransactionRepository();
+export const categoryRepository = new CategoryRepository();
+export const budgetRepository = new BudgetRepository();
+export const settingsRepository = new SettingsRepository();
+
+/**
+ * Ensures the database is initialized and migrations applied.
+ */
+export async function initializeDatabase(): Promise<void> {
+  await getDatabaseClient();
 }
 
-export async function initDatabase(db: SQLite.SQLiteDatabase): Promise<void> {
-  await db.execAsync(`
-    PRAGMA journal_mode = WAL;
-    ${CREATE_TRANSACTIONS_TABLE_SQL}
-    ${CREATE_INDEX_SQL}
-  `);
+/**
+ * Backward-compatible helper for legacy components.
+ */
+export async function getDatabase() {
+  return await getDatabaseClient();
 }
 
-export async function insertTransaction(tx: Omit<Transaction, 'id' | 'timestamp'>): Promise<Transaction> {
-  const db = await getDatabase();
-  const id = `tx_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-  const timestamp = Date.now();
-
-  await db.runAsync(
-    `INSERT INTO transactions (id, type, category, amount, description, timestamp, is_ai_categorized)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, tx.type, tx.category, tx.amount, tx.description, timestamp, tx.isAiCategorized ? 1 : 0]
-  );
-
-  return {
-    ...tx,
-    id,
-    timestamp,
-  };
+export async function insertTransaction(
+  tx: Omit<TransactionEntity, 'id' | 'created_at'> & { id?: string }
+): Promise<TransactionEntity> {
+  return await transactionRepository.insert(tx);
 }
 
-export async function getAllTransactions(): Promise<Transaction[]> {
-  const db = await getDatabase();
-  const rows = await db.getAllAsync<{
-    id: string;
-    type: 'income' | 'expense';
-    category: string;
-    amount: number;
-    description: string;
-    timestamp: number;
-    is_ai_categorized: number;
-  }>('SELECT * FROM transactions ORDER BY timestamp DESC LIMIT 100');
-
-  return rows.map((r) => ({
-    id: r.id,
-    type: r.type,
-    category: r.category as Transaction['category'],
-    amount: r.amount,
-    description: r.description,
-    date: new Date(r.timestamp).toISOString().split('T')[0],
-    timestamp: r.timestamp,
-    isAiCategorized: r.is_ai_categorized === 1,
-  }));
+export async function getAllTransactions(filter?: TransactionFilter): Promise<TransactionEntity[]> {
+  return await transactionRepository.getAll(filter);
 }
 
-export async function getFinancialSummary(): Promise<FinancialSummary> {
-  const db = await getDatabase();
-  const summaryRow = await db.getFirstAsync<{
-    totalIncome: number | null;
-    totalExpenses: number | null;
-    txCount: number;
-  }>(`
-    SELECT 
-      SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) AS totalIncome,
-      SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) AS totalExpenses,
-      COUNT(*) AS txCount
-    FROM transactions
-  `);
+export async function updateTransaction(
+  id: string,
+  updates: Partial<Omit<TransactionEntity, 'id' | 'created_at'>>
+): Promise<boolean> {
+  return await transactionRepository.update(id, updates);
+}
 
-  const income = summaryRow?.totalIncome ?? 0;
-  const expenses = summaryRow?.totalExpenses ?? 0;
+export async function deleteTransaction(id: string): Promise<boolean> {
+  return await transactionRepository.delete(id);
+}
 
-  return {
-    totalIncome: income,
-    totalExpenses: expenses,
-    netBalance: income - expenses,
-    transactionCount: summaryRow?.txCount ?? 0,
-  };
+export async function getFinancialSummary(startDate?: string, endDate?: string): Promise<FinancialSummary> {
+  return await transactionRepository.getFinancialSummary(startDate, endDate);
+}
+
+export async function getCategoryWiseTotals(
+  type: 'expense' | 'income' = 'expense',
+  startDate?: string,
+  endDate?: string
+): Promise<CategorySpendingSummary[]> {
+  return await transactionRepository.getCategoryWiseTotals(type, startDate, endDate);
+}
+
+export async function getBudgetProgress(month: number, year: number): Promise<BudgetProgressSummary[]> {
+  return await budgetRepository.getBudgetProgress(month, year);
+}
+
+export async function upsertBudget(
+  categoryId: string,
+  monthlyLimit: number,
+  month: number,
+  year: number
+) {
+  return await budgetRepository.upsert(categoryId, monthlyLimit, month, year);
+}
+
+export async function getSettings(): Promise<SettingsEntity> {
+  return await settingsRepository.getSettings();
+}
+
+export async function updateSettings(updates: Partial<Omit<SettingsEntity, 'id'>>): Promise<SettingsEntity> {
+  return await settingsRepository.updateSettings(updates);
 }
