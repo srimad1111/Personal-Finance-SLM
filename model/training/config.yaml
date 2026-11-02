@@ -1,0 +1,74 @@
+# ==============================================================================
+# SLM Fine-Tuning Configuration: Personal Finance Assistant
+# Target Model: google/gemma-3-1b-it (configurable)
+# Architecture: Small Language Model (SLM) with LoRA / QLoRA
+# ==============================================================================
+
+model:
+  name_or_path: "google/gemma-3-1b-it"
+  fallback_model: "google/gemma-2-2b-it"
+  alternative_models:
+    - "meta-llama/Llama-3.2-1B-Instruct"
+    - "Qwen/Qwen2.5-1.5B-Instruct"
+  torch_dtype: "auto" # "bfloat16" for Ampere/A100, "float16" for T4, "auto"
+  trust_remote_code: true
+  use_fast_tokenizer: true
+
+lora:
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  bias: "none"
+  task_type: "CAUSAL_LM"
+  # Target all projection matrices in self-attention and MLP blocks
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+    - "gate_proj"
+    - "up_proj"
+    - "down_proj"
+
+quantization:
+  use_qlora: true # Enable 4-bit NormalFloat4 QLoRA for T4/consumer GPUs
+  bnb_4bit_quant_type: "nf4"
+  bnb_4bit_use_double_quant: true
+  bnb_4bit_compute_dtype: "bfloat16" # Automatically adjusted to float16 on T4
+
+training:
+  output_dir: "model/training/outputs"
+  adapter_dir: "model/training/outputs/final_adapter"
+  num_train_epochs: 3
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 4
+  learning_rate: 2.0e-4
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.05
+  weight_decay: 0.01
+  max_grad_norm: 1.0
+  gradient_checkpointing: true
+  logging_steps: 10
+  eval_strategy: "steps"
+  eval_steps: 50
+  save_strategy: "steps"
+  save_steps: 50
+  save_total_limit: 3
+  load_best_model_at_end: true
+  metric_for_best_model: "eval_loss"
+  greater_is_better: false
+  dataloader_num_workers: 2
+  report_to: "tensorboard"
+
+data:
+  train_path: "model/data/splits/train.jsonl"
+  val_path: "model/data/splits/val.jsonl"
+  test_path: "model/data/splits/test.jsonl"
+  max_seq_length: 512
+
+smoke_test:
+  max_train_samples: 32
+  max_eval_samples: 16
+  max_steps: 5
+
