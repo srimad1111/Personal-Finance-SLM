@@ -1,4 +1,4 @@
-export type TransactionType = 'income' | 'expense';
+export * from './database';
 
 export type TransactionCategory =
   | 'salary'
@@ -21,12 +21,12 @@ export interface CategoryMetadata {
   name: string;
   icon: string;
   color: string;
-  type: TransactionType;
+  type: 'income' | 'expense';
 }
 
 export interface Transaction {
   id: string;
-  type: TransactionType;
+  type: 'income' | 'expense';
   category: TransactionCategory;
   amount: number;
   description: string;
@@ -36,13 +36,6 @@ export interface Transaction {
   notes?: string;
   isAiCategorized: boolean;
   aiConfidence?: number;
-}
-
-export interface FinancialSummary {
-  totalIncome: number;
-  totalExpenses: number;
-  netBalance: number;
-  transactionCount: number;
 }
 
 export interface CategoryBudget {
