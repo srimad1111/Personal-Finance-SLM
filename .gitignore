@@ -31,6 +31,7 @@ mobile/android/build
 *.safetensors
 *.gguf
 models/*.gguf
+mobile/models/*.gguf
 models/*.safetensors
 model/data/raw/*
 !model/data/raw/.gitkeep

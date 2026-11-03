@@ -1,17 +1,34 @@
-# Exclude large local GGUF models from EAS cloud upload context
+# ==============================================================================
+# EAS Cloud Build Ignore Rules - Personal Finance SLM
+# ==============================================================================
+
+# 1. Model Weights & Large Checkpoints (Strictly excluded from EAS upload & APK)
 models/*.gguf
-models/*.bin
 *.gguf
+models/*.bin
 *.bin
+models/*.pt
 *.pt
+models/*.safetensors
 *.safetensors
 
-# Exclude local build directories and caches
+# 2. Local Dependencies & Package Cache (Reinstalled on EAS Cloud container)
+node_modules/
+
+# 3. Local Build Directories, Bundles & Caches
 dist/
 .expo/
+web-build/
+
+# 4. Native Stubs (Allows Expo Continuous Native Generation - CNG to generate cleanly)
 android/
 ios/
+
+# 5. Temporary Build Artifacts & System Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
+*.tmp
+.DS_Store
+Thumbs.db
