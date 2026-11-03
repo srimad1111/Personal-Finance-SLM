@@ -526,6 +526,37 @@ export async function deleteImportedModel(): Promise<void> {
 }
 
 /**
+ * Safely cleans up abandoned temporary staging files (.tmp.<timestamp>) from interrupted imports.
+ * Never touches the active valid model or backup (.bak) files.
+ */
+export async function cleanupAbandonedTempFiles(): Promise<number> {
+  let cleanedCount = 0;
+  if (isImporting) return 0;
+
+  try {
+    const modelsDir = getModelsDirectory();
+    const dirInfo = await FileSystem.getInfoAsync(modelsDir);
+    if (!dirInfo.exists || !dirInfo.isDirectory) return 0;
+
+    const items = await FileSystem.readDirectoryAsync(modelsDir);
+    for (const item of items) {
+      if (item.includes('.tmp.')) {
+        const itemPath = `${modelsDir}${item}`;
+        const info = await FileSystem.getInfoAsync(itemPath);
+        if (info.exists && !info.isDirectory) {
+          await FileSystem.deleteAsync(itemPath, { idempotent: true });
+          cleanedCount++;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[ModelStorageService] Temp cleanup warning:', err);
+  }
+
+  return cleanedCount;
+}
+
+/**
  * Returns current lifecycle status of the storage service.
  */
 export function getModelStatus(): StorageLifecycleState {

@@ -6,6 +6,7 @@ import { AddTransactionScreen } from '../screens/AddTransactionScreen';
 import { BudgetsScreen } from '../screens/BudgetsScreen';
 import { AnalyticsScreen } from '../screens/AnalyticsScreen';
 import { AiAssistantScreen } from '../screens/AiAssistantScreen';
+import { LocalModelTestScreen } from '../screens/LocalModelTestScreen';
 import { BottomTabBar } from './BottomTabBar';
 import { DatabaseDiagnosticModal } from '../components/DatabaseDiagnosticModal';
 import { MainTabType, Transaction, TransactionType } from '../types';
@@ -151,6 +152,8 @@ export const AppNavigator: React.FC = () => {
         return <AnalyticsScreen />;
       case 'assistant':
         return <AiAssistantScreen />;
+      case 'modelTest':
+        return <LocalModelTestScreen onNavigate={setActiveTab} />;
       default:
         return (
           <DashboardScreen

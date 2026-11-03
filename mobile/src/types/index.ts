@@ -82,4 +82,10 @@ export interface ChatMessage {
   };
 }
 
-export type MainTabType = 'dashboard' | 'transactions' | 'budgets' | 'analytics' | 'assistant';
+export type MainTabType =
+  | 'dashboard'
+  | 'transactions'
+  | 'budgets'
+  | 'analytics'
+  | 'assistant'
+  | 'modelTest';

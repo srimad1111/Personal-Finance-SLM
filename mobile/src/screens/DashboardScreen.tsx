@@ -114,6 +114,20 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   borderRadius: borderRadius.md,
                 },
               ]}
+              onPress={() => onNavigate('modelTest')}
+              accessibilityLabel="Local Model Test"
+            >
+              <Ionicons name="hardware-chip-outline" size={16} color={colors.aiAccent} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.headerActionBtn,
+                {
+                  backgroundColor: colors.surfaceElevated,
+                  borderColor: colors.border,
+                  borderRadius: borderRadius.md,
+                },
+              ]}
               onPress={() => onNavigate('analytics')}
               accessibilityLabel="Analytics & Charts"
             >
@@ -213,6 +227,39 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             onPress={() => onNavigate('analytics')}
           />
         </View>
+
+        {/* Local Model Test Entry Point */}
+        <Card
+          style={styles.sectionCard}
+          onPress={() => onNavigate('modelTest')}
+        >
+          <View style={styles.sectionHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: borderRadius.md,
+                  backgroundColor: `${colors.aiAccent}22`,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginRight: 10,
+                }}
+              >
+                <Ionicons name="hardware-chip-outline" size={18} color={colors.aiAccent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
+                  Local Model Test
+                </Text>
+                <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>
+                  On-device Gemma 3 1B SLM test bench
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </View>
+        </Card>
 
         {/* Monthly Expense Breakdown Section */}
         <Card style={styles.sectionCard}>
