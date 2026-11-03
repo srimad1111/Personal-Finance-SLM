@@ -16,13 +16,15 @@ export const Header: React.FC<HeaderProps> = ({
   rightAction,
   showThemeToggle = true,
 }) => {
-  const { colors, isDark, toggleTheme } = useTheme();
+  const { colors, isDark, toggleTheme, borderRadius } = useTheme();
 
   return (
     <View style={styles.container}>
       <View style={styles.titleContainer}>
         <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
-        {subtitle && <Text style={[styles.subtitle, { color: colors.textMuted }]}>{subtitle}</Text>}
+        {subtitle && (
+          <Text style={[styles.subtitle, { color: colors.textMuted }]}>{subtitle}</Text>
+        )}
       </View>
 
       <View style={styles.actionsContainer}>
@@ -33,6 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
               {
                 backgroundColor: colors.surfaceElevated,
                 borderColor: colors.border,
+                borderRadius: borderRadius.md,
               },
             ]}
             onPress={toggleTheme}
@@ -41,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Ionicons
               name={isDark ? 'sunny-outline' : 'moon-outline'}
-              size={18}
+              size={17}
               color={isDark ? '#F59E0B' : colors.textPrimary}
             />
           </TouchableOpacity>
@@ -57,21 +60,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingTop: 8,
+    paddingBottom: 14,
     paddingHorizontal: 20,
   },
   titleContainer: {
     flex: 1,
   },
   title: {
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.4,
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
     marginTop: 2,
+    letterSpacing: -0.1,
   },
   actionsContainer: {
     flexDirection: 'row',
@@ -79,12 +84,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   iconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
   },
 });
-

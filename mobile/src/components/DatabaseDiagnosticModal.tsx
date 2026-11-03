@@ -11,7 +11,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from './Button';
 import { Card } from './Card';
-import { StatusBadge } from './StatusBadge';
 import { runDatabaseTests } from '../database/databaseTests';
 import { DbTestSuiteReport } from '../types/database';
 import { useTheme } from '../theme';
@@ -27,7 +26,7 @@ export const DatabaseDiagnosticModal: React.FC<DatabaseDiagnosticModalProps> = (
   onClose,
   onDatabaseChanged,
 }) => {
-  const { colors, borderRadius } = useTheme();
+  const { colors, borderRadius, isDark } = useTheme();
 
   const [isRunning, setIsRunning] = useState(false);
   const [report, setReport] = useState<DbTestSuiteReport | null>(null);
@@ -51,7 +50,7 @@ export const DatabaseDiagnosticModal: React.FC<DatabaseDiagnosticModalProps> = (
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="fade"
       onRequestClose={onClose}
     >
       <View style={[styles.overlay, { backgroundColor: colors.overlay }]}>
@@ -61,7 +60,7 @@ export const DatabaseDiagnosticModal: React.FC<DatabaseDiagnosticModalProps> = (
             {
               backgroundColor: colors.surface,
               borderColor: colors.border,
-              borderRadius: borderRadius.xl,
+              borderRadius: borderRadius.lg,
             },
           ]}
         >
@@ -69,14 +68,14 @@ export const DatabaseDiagnosticModal: React.FC<DatabaseDiagnosticModalProps> = (
           <View style={styles.header}>
             <View>
               <Text style={[styles.title, { color: colors.textPrimary }]}>
-                SQLite Diagnostics & Test Suite
+                SQLite Diagnostics & Integrity
               </Text>
               <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-                Validates local offline persistence & integrity
+                Validates local offline persistence & ACID compliance
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={22} color={colors.textPrimary} />
+              <Ionicons name="close" size={20} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -87,16 +86,17 @@ export const DatabaseDiagnosticModal: React.FC<DatabaseDiagnosticModalProps> = (
                 styles.summaryCard,
                 {
                   backgroundColor: report.failed === 0 ? colors.successLight : colors.dangerLight,
-                  borderColor: report.failed === 0 ? colors.success : colors.danger,
-                  borderRadius: borderRadius.lg,
+                  borderColor: report.failed === 0 ? `${colors.success}30` : `${colors.danger}30`,
+                  borderRadius: borderRadius.sm,
                 },
               ]}
             >
               <View style={styles.summaryRow}>
                 <Ionicons
                   name={report.failed === 0 ? 'checkmark-circle' : 'alert-circle'}
-                  size={24}
+                  size={18}
                   color={report.failed === 0 ? colors.success : colors.danger}
+                  style={{ marginRight: 8 }}
                 />
                 <Text
                   style={[
@@ -105,8 +105,8 @@ export const DatabaseDiagnosticModal: React.FC<DatabaseDiagnosticModalProps> = (
                   ]}
                 >
                   {report.failed === 0
-                    ? `All ${report.total} Database Tests Passed (${report.durationMs}ms)`
-                    : `${report.failed} Failed out of ${report.total} tests`}
+                    ? `All ${report.total} tests passed (${report.durationMs}ms)`
+                    : `${report.failed} failed out of ${report.total} tests`}
                 </Text>
               </View>
             </View>
@@ -115,82 +115,84 @@ export const DatabaseDiagnosticModal: React.FC<DatabaseDiagnosticModalProps> = (
           {/* Test List */}
           <ScrollView
             style={styles.testList}
-            contentContainerStyle={{ paddingVertical: 8 }}
+            contentContainerStyle={{ paddingVertical: 6 }}
             showsVerticalScrollIndicator={false}
           >
             {!report && !isRunning && (
               <View style={styles.emptyPrompt}>
-                <Ionicons name="hardware-chip-outline" size={40} color={colors.textMuted} />
+                <Ionicons name="shield-checkmark-outline" size={36} color={colors.textMuted} />
                 <Text style={[styles.emptyPromptTitle, { color: colors.textPrimary }]}>
                   Database Operations Ready
                 </Text>
                 <Text style={[styles.emptyPromptSub, { color: colors.textMuted }]}>
-                  Click below to execute all 13 automated tests against the local SQLite database.
+                  Run the diagnostic suite to test schema integrity, CRUD, aggregation, and atomic rollback.
                 </Text>
               </View>
             )}
 
             {isRunning && (
               <View style={styles.runningContainer}>
-                <ActivityIndicator size="large" color={colors.accent} />
-                <Text style={[styles.runningText, { color: colors.textPrimary }]}>
-                  Executing parameterized SQL tests...
+                <ActivityIndicator size="small" color={colors.accent} />
+                <Text style={[styles.runningText, { color: colors.textSecondary }]}>
+                  Executing parameterized SQLite tests...
                 </Text>
               </View>
             )}
 
             {report?.results.map((r, i) => (
-              <Card
+              <View
                 key={i}
                 style={[
-                  styles.testCard,
+                  styles.testItemRow,
                   {
                     backgroundColor: colors.surfaceElevated,
                     borderColor: r.passed ? colors.borderSubtle : colors.danger,
+                    borderRadius: borderRadius.sm,
                   },
                 ]}
               >
-                <View style={styles.testRow}>
-                  <Ionicons
-                    name={r.passed ? 'checkmark-circle' : 'close-circle'}
-                    size={18}
-                    color={r.passed ? colors.success : colors.danger}
-                    style={{ marginRight: 10 }}
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={[
-                        styles.testName,
-                        { color: r.passed ? colors.textPrimary : colors.danger },
-                      ]}
-                    >
-                      {r.test}
-                    </Text>
-                    {r.details && (
-                      <Text style={[styles.testError, { color: colors.danger }]}>
-                        {r.details}
-                      </Text>
-                    )}
-                  </View>
-                  <Text style={[styles.testDuration, { color: colors.textMuted }]}>
-                    {r.durationMs}ms
+                <Ionicons
+                  name={r.passed ? 'checkmark-circle' : 'close-circle'}
+                  size={16}
+                  color={r.passed ? colors.success : colors.danger}
+                  style={{ marginRight: 8 }}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.testName,
+                      { color: r.passed ? colors.textPrimary : colors.danger },
+                    ]}
+                  >
+                    {r.test}
                   </Text>
+                  {r.details && (
+                    <Text style={[styles.testError, { color: colors.danger }]}>
+                      {r.details}
+                    </Text>
+                  )}
                 </View>
-              </Card>
+                <Text style={[styles.testDuration, { color: colors.textMuted }]}>
+                  {r.durationMs}ms
+                </Text>
+              </View>
             ))}
           </ScrollView>
 
           {/* Actions */}
           <View style={styles.footerActions}>
             <Button
-              title={isRunning ? 'Running Tests...' : 'Run SQLite Test Suite'}
+              title={isRunning ? 'Executing Tests...' : 'Run SQLite Diagnostic'}
               icon="play-outline"
               loading={isRunning}
+              variant="primary"
+              size="md"
               onPress={handleRunTests}
             />
             <Button
-              title="Close Diagnostics"
+              title="Close"
               variant="ghost"
+              size="sm"
               onPress={onClose}
               style={{ marginTop: 6 }}
             />
@@ -210,30 +212,31 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: '100%',
-    maxHeight: '85%',
-    padding: 20,
+    maxWidth: 440,
+    maxHeight: '80%',
+    padding: 18,
     borderWidth: 1,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 12,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: -0.3,
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 11,
     marginTop: 2,
   },
   closeBtn: {
     padding: 4,
   },
   summaryCard: {
-    padding: 12,
+    padding: 10,
     borderWidth: 1,
     marginBottom: 10,
   },
@@ -242,61 +245,56 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   summaryText: {
-    fontSize: 13,
-    fontWeight: '700',
-    marginLeft: 8,
+    fontSize: 12,
+    fontWeight: '600',
   },
   testList: {
-    maxHeight: 320,
-    marginVertical: 4,
+    maxHeight: 280,
   },
   emptyPrompt: {
     alignItems: 'center',
-    paddingVertical: 36,
+    paddingVertical: 32,
+    paddingHorizontal: 16,
   },
   emptyPromptTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
     marginTop: 10,
   },
   emptyPromptSub: {
-    fontSize: 12,
+    fontSize: 11,
     textAlign: 'center',
     marginTop: 4,
-    paddingHorizontal: 20,
+    lineHeight: 16,
   },
   runningContainer: {
+    paddingVertical: 30,
     alignItems: 'center',
-    paddingVertical: 40,
+    gap: 8,
   },
   runningText: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 12,
+    fontSize: 12,
   },
-  testCard: {
-    marginVertical: 3,
-    padding: 10,
-  },
-  testRow: {
+  testItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    marginBottom: 5,
   },
   testName: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   testError: {
-    fontSize: 11,
+    fontSize: 10,
     marginTop: 2,
   },
   testDuration: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginLeft: 8,
+    fontSize: 10,
   },
   footerActions: {
-    marginTop: 10,
+    marginTop: 12,
   },
 });
-

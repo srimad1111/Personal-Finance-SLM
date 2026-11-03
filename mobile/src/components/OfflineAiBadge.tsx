@@ -10,7 +10,7 @@ interface OfflineAiBadgeProps {
 }
 
 export const OfflineAiBadge: React.FC<OfflineAiBadgeProps> = ({
-  modelName = 'Llama-3.2 / Qwen2.5 (Local)',
+  modelName = 'Gemma 3 1B (Local)',
   onPress,
   style,
 }) => {
@@ -24,17 +24,17 @@ export const OfflineAiBadge: React.FC<OfflineAiBadgeProps> = ({
       style={[
         styles.container,
         {
-          backgroundColor: colors.aiAccentLight,
-          borderColor: colors.aiAccent,
-          borderRadius: borderRadius.full,
+          backgroundColor: colors.surfaceElevated,
+          borderColor: colors.border,
+          borderRadius: borderRadius.sm,
         },
         style,
       ]}
     >
-      <View style={[styles.dot, { backgroundColor: colors.aiAccentGlow }]} />
-      <Ionicons name="hardware-chip-outline" size={13} color={colors.aiAccentGlow} style={styles.icon} />
-      <Text style={[styles.text, { color: colors.aiAccentGlow }]}>
-        Offline SLM: <Text style={styles.modelName}>{modelName}</Text>
+      <View style={[styles.dot, { backgroundColor: colors.aiAccent }]} />
+      <Ionicons name="sparkles" size={11} color={colors.aiAccent} style={styles.icon} />
+      <Text style={[styles.text, { color: colors.textSecondary }]}>
+        <Text style={[styles.modelName, { color: colors.textPrimary }]}>{modelName}</Text>
       </Text>
     </TouchableOpacity>
   );
@@ -44,26 +44,25 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 5,
     borderWidth: 1,
     alignSelf: 'flex-start',
   },
   dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 6,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    marginRight: 5,
   },
   icon: {
     marginRight: 4,
   },
   text: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '500',
   },
   modelName: {
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });
-

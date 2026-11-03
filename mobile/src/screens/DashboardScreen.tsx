@@ -33,7 +33,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onOpenDbDiagnostics,
   transactions = [],
 }) => {
-  const { colors, borderRadius } = useTheme();
+  const { colors, borderRadius, isDark } = useTheme();
   const [showBalance, setShowBalance] = useState(true);
   const [categoryBreakdowns, setCategoryBreakdowns] = useState<CategoryBreakdown[]>([]);
   const [monthlyIncome, setMonthlyIncome] = useState(0);
@@ -44,7 +44,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const currentMonthStr = String(now.getMonth() + 1).padStart(2, '0');
   const monthStartDate = `${currentYear}-${currentMonthStr}-01`;
 
-  // Deterministically fetch current month stats and category breakdown from SQLite
   const loadDashboardMetrics = useCallback(async () => {
     try {
       const summary = await getFinancialSummary(monthStartDate);
@@ -70,7 +69,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     loadDashboardMetrics();
   }, [loadDashboardMetrics, transactions]);
 
-  // Overall all-time net worth calculation (deterministic)
   const allTimeIncome = transactions
     .filter((t) => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
@@ -82,15 +80,15 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const netBalance = allTimeIncome - allTimeExpense;
   const currentMonthSavings = monthlyIncome - monthlyExpense;
   const savingsRate = monthlyIncome > 0 ? (currentMonthSavings / monthlyIncome) * 100 : 0;
-  const recentTransactions = transactions.slice(0, 5);
+  const recentTransactions = transactions.slice(0, 6);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <Header
         title="Portfolio"
-        subtitle="Personal Finance Ledger (SQLite)"
+        subtitle="Primary Ledger · Offline SQLite"
         rightAction={
-          <View style={{ flexDirection: 'row', gap: 6 }}>
+          <View style={styles.headerRightActions}>
             {onOpenDbDiagnostics && (
               <TouchableOpacity
                 style={[
@@ -98,12 +96,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   {
                     backgroundColor: colors.surfaceElevated,
                     borderColor: colors.border,
+                    borderRadius: borderRadius.md,
                   },
                 ]}
                 onPress={onOpenDbDiagnostics}
-                accessibilityLabel="SQLite Diagnostics & Tests"
+                accessibilityLabel="SQLite Health & Diagnostic Tests"
               >
-                <Ionicons name="server-outline" size={17} color={colors.accent} />
+                <Ionicons name="shield-checkmark-outline" size={16} color={colors.success} />
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -112,12 +111,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 {
                   backgroundColor: colors.surfaceElevated,
                   borderColor: colors.border,
+                  borderRadius: borderRadius.md,
                 },
               ]}
               onPress={() => onNavigate('analytics')}
               accessibilityLabel="Analytics & Charts"
             >
-              <Ionicons name="stats-chart-outline" size={17} color={colors.textPrimary} />
+              <Ionicons name="stats-chart-outline" size={16} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
         }
@@ -127,55 +127,22 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Offline Status & SQLite Health Row */}
-        <View style={styles.badgeRow}>
-          <View
-            style={[
-              styles.offlinePill,
-              {
-                backgroundColor: colors.surfaceElevated,
-                borderColor: colors.border,
-                borderRadius: borderRadius.full,
-              },
-            ]}
-          >
-            <View style={[styles.dot, { backgroundColor: colors.success }]} />
-            <Text style={[styles.offlinePillText, { color: colors.textSecondary }]}>
-              Mode: <Text style={{ fontWeight: '700', color: colors.textPrimary }}>100% Offline</Text>
-            </Text>
-          </View>
-
-          {onOpenDbDiagnostics && (
-            <TouchableOpacity
-              onPress={onOpenDbDiagnostics}
-              style={[
-                styles.dbPill,
-                {
-                  backgroundColor: colors.surfaceElevated,
-                  borderColor: colors.border,
-                  borderRadius: borderRadius.full,
-                },
-              ]}
-            >
-              <Ionicons name="shield-checkmark-outline" size={13} color={colors.success} style={{ marginRight: 4 }} />
-              <Text style={[styles.dbPillText, { color: colors.textSecondary }]}>
-                SQLite: <Text style={{ fontWeight: '700', color: colors.success }}>WAL Encrypted Local</Text>
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Master Net Balance Card */}
-        <Card style={[styles.balanceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        {/* Master Net Balance Card (Revolut / Ramp Inspired) */}
+        <Card style={styles.heroBalanceCard}>
           <View style={styles.balanceHeader}>
-            <Text style={[styles.balanceCaption, { color: colors.textMuted }]}>TOTAL NET BALANCE</Text>
+            <View style={styles.balanceTag}>
+              <View style={[styles.statusDot, { backgroundColor: colors.success }]} />
+              <Text style={[styles.balanceCaption, { color: colors.textMuted }]}>
+                TOTAL NET BALANCE
+              </Text>
+            </View>
             <TouchableOpacity
               onPress={() => setShowBalance(!showBalance)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <Ionicons
                 name={showBalance ? 'eye-outline' : 'eye-off-outline'}
-                size={18}
+                size={17}
                 color={colors.textMuted}
               />
             </TouchableOpacity>
@@ -185,25 +152,19 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             {showBalance ? formatINR(netBalance) : '••••••••'}
           </Text>
 
-          {/* Current Month Metrics Grid */}
-          <View style={[styles.metricsGrid, { borderTopColor: colors.borderSubtle }]}>
+          {/* 3-Stat Metric Strip */}
+          <View style={[styles.metricsStrip, { borderTopColor: colors.borderSubtle }]}>
             <View style={styles.metricColumn}>
-              <View style={styles.metricLabelGroup}>
-                <View style={[styles.indicatorDot, { backgroundColor: colors.success }]} />
-                <Text style={[styles.metricLabel, { color: colors.textMuted }]}>This Month In</Text>
-              </View>
+              <Text style={[styles.metricLabel, { color: colors.textMuted }]}>Inflow</Text>
               <Text style={[styles.metricNumber, { color: colors.success }]}>
-                {formatINR(monthlyIncome, { showSign: true })}
+                +{formatINR(monthlyIncome)}
               </Text>
             </View>
 
             <View style={[styles.metricDivider, { backgroundColor: colors.borderSubtle }]} />
 
             <View style={styles.metricColumn}>
-              <View style={styles.metricLabelGroup}>
-                <View style={[styles.indicatorDot, { backgroundColor: colors.danger }]} />
-                <Text style={[styles.metricLabel, { color: colors.textMuted }]}>This Month Out</Text>
-              </View>
+              <Text style={[styles.metricLabel, { color: colors.textMuted }]}>Outflow</Text>
               <Text style={[styles.metricNumber, { color: colors.danger }]}>
                 -{formatINR(monthlyExpense)}
               </Text>
@@ -212,10 +173,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <View style={[styles.metricDivider, { backgroundColor: colors.borderSubtle }]} />
 
             <View style={styles.metricColumn}>
-              <View style={styles.metricLabelGroup}>
-                <View style={[styles.indicatorDot, { backgroundColor: colors.accent }]} />
-                <Text style={[styles.metricLabel, { color: colors.textMuted }]}>Savings</Text>
-              </View>
+              <Text style={[styles.metricLabel, { color: colors.textMuted }]}>Savings</Text>
               <Text
                 style={[
                   styles.metricNumber,
@@ -228,17 +186,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </View>
         </Card>
 
-        {/* Quick Action Buttons */}
+        {/* Quick Action Tiles */}
         <View style={styles.quickActionsRow}>
           <QuickActionButton
             label="Expense"
-            icon="arrow-up-circle-outline"
+            icon="arrow-up"
             accentColor={colors.danger}
             onPress={() => onOpenAddModal('expense')}
           />
           <QuickActionButton
             label="Income"
-            icon="arrow-down-circle-outline"
+            icon="arrow-down"
             accentColor={colors.success}
             onPress={() => onOpenAddModal('income')}
           />
@@ -250,117 +208,148 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           />
           <QuickActionButton
             label="Analytics"
-            icon="stats-chart-outline"
-            accentColor={colors.aiAccentGlow}
+            icon="bar-chart-outline"
+            accentColor={colors.aiAccent}
             onPress={() => onNavigate('analytics')}
           />
         </View>
 
-        {/* Dynamic Spending Breakdown Section */}
-        <Card style={{ marginVertical: 8 }}>
+        {/* Monthly Expense Breakdown Section */}
+        <Card style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <View>
               <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                Monthly Expense Breakdown
+                Expense Breakdown
               </Text>
               <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>
-                Aggregated deterministically from SQLite
+                Monthly category distribution
               </Text>
             </View>
-            <TouchableOpacity onPress={() => onNavigate('analytics')}>
-              <Text style={[styles.seeAllText, { color: colors.accent }]}>View All →</Text>
+            <TouchableOpacity
+              onPress={() => onNavigate('analytics')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={[styles.viewAllText, { color: colors.accent }]}>View All →</Text>
             </TouchableOpacity>
           </View>
 
           {categoryBreakdowns.length > 0 ? (
             <ExpenseBreakdownBar categories={categoryBreakdowns} />
           ) : (
-            <View style={{ paddingVertical: 14, alignItems: 'center' }}>
-              <Text style={{ color: colors.textMuted, fontSize: 13 }}>No expenses recorded this month yet</Text>
+            <View style={styles.emptyCardBox}>
+              <Text style={[styles.emptyCardText, { color: colors.textMuted }]}>
+                No expenses recorded this month
+              </Text>
             </View>
           )}
         </Card>
 
-        {/* Recent Transactions Section */}
-        <View style={styles.recentTransactionsHeader}>
+        {/* Recent Transactions List (Mercury / Linear Single List Container) */}
+        <View style={styles.transactionsHeaderRow}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-            Recent Transactions ({transactions.length})
+            Recent Activity
           </Text>
-          <TouchableOpacity onPress={() => onNavigate('transactions')}>
-            <Text style={[styles.seeAllText, { color: colors.accent }]}>See all →</Text>
+          <TouchableOpacity
+            onPress={() => onNavigate('transactions')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={[styles.viewAllText, { color: colors.accent }]}>See all ({transactions.length}) →</Text>
           </TouchableOpacity>
         </View>
 
-        {recentTransactions.map((tx) => {
-          const categoryMeta = CATEGORIES[tx.category] || {
-            id: tx.category,
-            name: tx.category,
-            icon: 'folder-outline',
-            color: '#3B82F6',
-            type: tx.type,
-          };
-          const isIncome = tx.type === 'income';
+        <Card style={styles.transactionListCard}>
+          {recentTransactions.length > 0 ? (
+            recentTransactions.map((tx, index) => {
+              const categoryMeta = CATEGORIES[tx.category] || {
+                id: tx.category,
+                name: tx.category,
+                icon: 'receipt-outline',
+                color: colors.accent,
+                type: tx.type,
+              };
+              const isIncome = tx.type === 'income';
+              const isLast = index === recentTransactions.length - 1;
 
-          return (
-            <Card
-              key={tx.id}
-              style={styles.transactionCard}
-              onPress={() => onNavigate('transactions')}
-            >
-              <View style={styles.txRow}>
-                {/* Category Icon */}
-                <View
+              return (
+                <TouchableOpacity
+                  key={tx.id}
+                  activeOpacity={0.7}
+                  onPress={() => onNavigate('transactions')}
                   style={[
-                    styles.txIconContainer,
-                    {
-                      backgroundColor: `${categoryMeta.color}1F`,
-                      borderRadius: borderRadius.md,
-                    },
+                    styles.txRow,
+                    !isLast && { borderBottomColor: colors.borderSubtle, borderBottomWidth: 1 },
                   ]}
                 >
-                  <Ionicons
-                    name={categoryMeta.icon as any}
-                    size={20}
-                    color={categoryMeta.color}
-                  />
-                </View>
-
-                {/* Details */}
-                <View style={styles.txInfo}>
-                  <Text style={[styles.txTitle, { color: colors.textPrimary }]} numberOfLines={1}>
-                    {tx.merchant || tx.description}
-                  </Text>
-                  <View style={styles.txMetaRow}>
-                    <Text style={[styles.txCategory, { color: colors.textMuted }]}>
-                      {categoryMeta.name}
-                    </Text>
-                    {tx.isAiCategorized && (
-                      <StatusBadge
-                        label="SLM Tagged"
-                        icon="hardware-chip-outline"
-                        status="ai"
-                        style={{ marginLeft: 6 }}
-                      />
-                    )}
-                  </View>
-                </View>
-
-                {/* Amount */}
-                <View style={styles.txAmountContainer}>
-                  <Text
+                  {/* Category Icon */}
+                  <View
                     style={[
-                      styles.txAmount,
-                      { color: isIncome ? colors.success : colors.textPrimary },
+                      styles.txIconContainer,
+                      {
+                        backgroundColor: `${categoryMeta.color}14`,
+                        borderRadius: borderRadius.sm,
+                      },
                     ]}
                   >
-                    {formatTransactionAmount(tx.amount, tx.type)}
-                  </Text>
-                  <Text style={[styles.txDate, { color: colors.textMuted }]}>{tx.date}</Text>
-                </View>
-              </View>
-            </Card>
-          );
-        })}
+                    <Ionicons
+                      name={categoryMeta.icon as any}
+                      size={17}
+                      color={categoryMeta.color}
+                    />
+                  </View>
+
+                  {/* Transaction Details */}
+                  <View style={styles.txInfo}>
+                    <Text style={[styles.txTitle, { color: colors.textPrimary }]} numberOfLines={1}>
+                      {tx.merchant || tx.description}
+                    </Text>
+                    <View style={styles.txMetaGroup}>
+                      <Text style={[styles.txCategory, { color: colors.textMuted }]}>
+                        {categoryMeta.name}
+                      </Text>
+                      {tx.isAiCategorized && (
+                        <StatusBadge
+                          label="SLM"
+                          status="ai"
+                          size="sm"
+                          style={{ marginLeft: 6 }}
+                        />
+                      )}
+                    </View>
+                  </View>
+
+                  {/* Amount & Date */}
+                  <View style={styles.txAmountContainer}>
+                    <Text
+                      style={[
+                        styles.txAmount,
+                        {
+                          color: isIncome ? colors.success : colors.textPrimary,
+                        },
+                      ]}
+                    >
+                      {formatTransactionAmount(tx.amount, tx.type)}
+                    </Text>
+                    <Text style={[styles.txDate, { color: colors.textMuted }]}>{tx.date}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          ) : (
+            <View style={styles.emptyCardBox}>
+              <Text style={[styles.emptyCardText, { color: colors.textMuted }]}>
+                No transactions recorded yet
+              </Text>
+            </View>
+          )}
+        </Card>
+
+        {/* Subtle Security & Offline Engine Footer */}
+        <View style={styles.footerNoteRow}>
+          <Ionicons name="lock-closed-outline" size={12} color={colors.textMuted} style={{ marginRight: 4 }} />
+          <Text style={[styles.footerNoteText, { color: colors.textMuted }]}>
+            100% Offline · Local SQLite AES/WAL Storage
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -371,149 +360,126 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingBottom: 110,
   },
-  badgeRow: {
+  headerRightActions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+    gap: 8,
   },
   headerActionBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
   },
-  offlinePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderWidth: 1,
-  },
-  dbPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 1,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 6,
-  },
-  offlinePillText: {
-    fontSize: 11,
-  },
-  dbPillText: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  balanceCard: {
-    padding: 20,
-    marginBottom: 16,
+  heroBalanceCard: {
+    padding: 18,
+    marginTop: 4,
+    marginBottom: 12,
   },
   balanceHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  balanceCaption: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-  },
-  balanceAmount: {
-    fontSize: 34,
-    fontWeight: '800',
-    letterSpacing: -1,
-    marginVertical: 14,
-  },
-  metricsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 16,
-    borderTopWidth: 1,
-  },
-  metricColumn: {
-    flex: 1,
-  },
-  metricLabelGroup: {
+  balanceTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
   },
-  indicatorDot: {
+  statusDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
     marginRight: 6,
   },
-  metricLabel: {
+  balanceCaption: {
     fontSize: 11,
     fontWeight: '600',
+    letterSpacing: 0.8,
+  },
+  balanceAmount: {
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: -0.6,
+    marginVertical: 10,
+  },
+  metricsStrip: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 14,
+    borderTopWidth: 1,
+  },
+  metricColumn: {
+    flex: 1,
+  },
+  metricLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginBottom: 2,
   },
   metricNumber: {
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: -0.3,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   metricDivider: {
     width: 1,
-    height: 32,
+    height: 24,
     marginHorizontal: 8,
   },
   quickActionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginVertical: 12,
-    paddingHorizontal: 6,
+    marginBottom: 14,
+  },
+  sectionCard: {
+    padding: 16,
+    marginBottom: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: -0.3,
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   sectionSubtitle: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginTop: 2,
+    fontSize: 11,
+    fontWeight: '400',
+    marginTop: 1,
   },
-  seeAllText: {
-    fontSize: 13,
+  viewAllText: {
+    fontSize: 12,
     fontWeight: '600',
   },
-  recentTransactionsHeader: {
+  transactionsHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 18,
     marginBottom: 8,
+    marginTop: 2,
+    paddingHorizontal: 2,
   },
-  transactionCard: {
-    marginVertical: 4,
-    padding: 12,
+  transactionListCard: {
+    paddingVertical: 0,
+    paddingHorizontal: 14,
+    marginBottom: 14,
   },
   txRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 12,
   },
   txIconContainer: {
-    width: 44,
-    height: 44,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -522,29 +488,48 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   txTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     letterSpacing: -0.2,
   },
-  txMetaRow: {
+  txMetaGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 3,
+    marginTop: 2,
   },
   txCategory: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   txAmountContainer: {
     alignItems: 'flex-end',
+    marginLeft: 8,
   },
   txAmount: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   txDate: {
     fontSize: 11,
-    fontWeight: '500',
-    marginTop: 3,
+    fontWeight: '400',
+    marginTop: 2,
+  },
+  emptyCardBox: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  emptyCardText: {
+    fontSize: 12,
+  },
+  footerNoteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+  },
+  footerNoteText: {
+    fontSize: 11,
+    fontWeight: '400',
   },
 });

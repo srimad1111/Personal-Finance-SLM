@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -31,7 +31,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
   onSave,
   onClose,
 }) => {
-  const { colors, borderRadius } = useTheme();
+  const { colors, borderRadius, isDark } = useTheme();
 
   const isEditing = !!editingTransaction;
 
@@ -48,7 +48,11 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
     editingTransaction?.description || ''
   );
   const [category, setCategory] = useState<TransactionCategory>(
-    editingTransaction ? editingTransaction.category : (initialType === 'income' ? 'salary' : 'groceries')
+    editingTransaction
+      ? editingTransaction.category
+      : initialType === 'income'
+      ? 'salary'
+      : 'groceries'
   );
   const [date, setDate] = useState(
     editingTransaction ? editingTransaction.date : new Date().toISOString().split('T')[0]
@@ -60,7 +64,6 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
   const [dateError, setDateError] = useState<string | null>(null);
   const [descriptionError, setDescriptionError] = useState<string | null>(null);
 
-  // Validate Date (YYYY-MM-DD) deterministically
   const validateDate = (d: string): boolean => {
     const regex = /^\d{4}-\d{2}-\d{2}$/;
     if (!regex.test(d)) return false;
@@ -68,7 +71,6 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
     if (y < 2000 || y > 2100) return false;
     if (m < 1 || m > 12) return false;
     if (day < 1 || day > 31) return false;
-    // Check leap year / month day counts
     const testDate = new Date(y, m - 1, day);
     return (
       testDate.getFullYear() === y &&
@@ -95,7 +97,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
 
     // 2. Validate Date
     if (!validateDate(date.trim())) {
-      setDateError('Enter a valid date in YYYY-MM-DD format');
+      setDateError('Enter date in YYYY-MM-DD format');
       isValid = false;
     } else {
       setDateError(null);
@@ -131,6 +133,13 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
     type === 'income' ? c.type === 'income' : c.type === 'expense'
   );
 
+  const setQuickDate = (offsetDays: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - offsetDays);
+    setDate(d.toISOString().split('T')[0]);
+    if (dateError) setDateError(null);
+  };
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
@@ -138,12 +147,22 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
         style={{ flex: 1 }}
       >
         <Header
-          title={isEditing ? 'Edit Transaction' : 'New Transaction'}
-          subtitle={isEditing ? 'Update local SQLite record' : 'Saved directly to SQLite'}
+          title={isEditing ? 'Edit Transaction' : 'Record Transaction'}
+          subtitle={isEditing ? 'Update SQLite record' : 'Stored in local encrypted SQLite'}
           showThemeToggle={false}
           rightAction={
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={colors.textPrimary} />
+            <TouchableOpacity
+              onPress={onClose}
+              style={[
+                styles.closeButton,
+                {
+                  backgroundColor: colors.surfaceElevated,
+                  borderColor: colors.border,
+                  borderRadius: borderRadius.md,
+                },
+              ]}
+            >
+              <Ionicons name="close" size={18} color={colors.textPrimary} />
             </TouchableOpacity>
           }
         />
@@ -153,24 +172,27 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Segmented Type Switcher */}
+          {/* Segmented Type Toggle (Expense / Income) */}
           <View
             style={[
               styles.typeSwitcher,
               {
                 backgroundColor: colors.surfaceElevated,
-                borderColor: colors.border,
-                borderRadius: borderRadius.lg,
+                borderRadius: borderRadius.md,
               },
             ]}
           >
             <TouchableOpacity
               style={[
                 styles.typeOption,
-                type === 'expense' && {
-                  backgroundColor: colors.danger,
-                  borderRadius: borderRadius.md,
-                },
+                type === 'expense' && [
+                  styles.typeOptionActive,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    borderRadius: borderRadius.sm,
+                  },
+                ],
               ]}
               onPress={() => {
                 setType('expense');
@@ -183,8 +205,8 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                 style={[
                   styles.typeOptionText,
                   {
-                    color: type === 'expense' ? '#FFFFFF' : colors.textMuted,
-                    fontWeight: type === 'expense' ? '700' : '500',
+                    color: type === 'expense' ? colors.danger : colors.textMuted,
+                    fontWeight: type === 'expense' ? '600' : '500',
                   },
                 ]}
               >
@@ -195,10 +217,14 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
             <TouchableOpacity
               style={[
                 styles.typeOption,
-                type === 'income' && {
-                  backgroundColor: colors.success,
-                  borderRadius: borderRadius.md,
-                },
+                type === 'income' && [
+                  styles.typeOptionActive,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    borderRadius: borderRadius.sm,
+                  },
+                ],
               ]}
               onPress={() => {
                 setType('income');
@@ -211,8 +237,8 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                 style={[
                   styles.typeOptionText,
                   {
-                    color: type === 'income' ? '#FFFFFF' : colors.textMuted,
-                    fontWeight: type === 'income' ? '700' : '500',
+                    color: type === 'income' ? colors.success : colors.textMuted,
+                    fontWeight: type === 'income' ? '600' : '500',
                   },
                 ]}
               >
@@ -221,24 +247,23 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Amount Display & Input with Validation */}
-          <Card style={[styles.amountCard, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.amountLabel, { color: colors.textMuted }]}>TRANSACTION AMOUNT (₹)</Text>
+          {/* Hero Amount Field (Fintech Standard) */}
+          <Card style={styles.amountCard}>
+            <Text style={[styles.amountLabel, { color: colors.textMuted }]}>
+              TRANSACTION AMOUNT (INR)
+            </Text>
             <View style={styles.amountInputRow}>
               <Text
                 style={[
                   styles.currencySymbol,
-                  { color: type === 'income' ? colors.success : colors.danger },
+                  { color: type === 'income' ? colors.success : colors.textPrimary },
                 ]}
               >
                 ₹
               </Text>
               <TextInput
-                style={[
-                  styles.amountInput,
-                  { color: colors.textPrimary },
-                ]}
-                placeholder="0.00"
+                style={[styles.amountInput, { color: colors.textPrimary }]}
+                placeholder="0"
                 placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"
                 value={amount}
@@ -250,14 +275,15 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
               />
             </View>
             {amountError && (
-              <Text style={[styles.errorText, { color: colors.danger }]}>{amountError}</Text>
+              <Text style={[styles.inlineError, { color: colors.danger }]}>{amountError}</Text>
             )}
           </Card>
 
-          {/* Merchant & Description */}
-          <Card style={{ marginVertical: 6 }}>
+          {/* Form Fields Card */}
+          <Card style={styles.formCard}>
+            {/* Merchant / Entity */}
             <View style={styles.inputGroup}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Merchant / Payee</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>MERCHANT / ENTITY</Text>
               <TextInput
                 style={[
                   styles.textInput,
@@ -268,16 +294,17 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                     borderRadius: borderRadius.md,
                   },
                 ]}
-                placeholder="e.g. Whole Foods, Apple, ConEdison..."
+                placeholder="e.g. Swiggy, Blinkit, TCS, BESCOM"
                 placeholderTextColor={colors.textMuted}
                 value={merchant}
                 onChangeText={setMerchant}
               />
             </View>
 
-            <View style={[styles.inputGroup, { marginTop: 12 }]}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-                Description <Text style={{ color: colors.danger }}>*</Text>
+            {/* Description */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>
+                DESCRIPTION / NOTE
               </Text>
               <TextInput
                 style={[
@@ -289,7 +316,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                     borderRadius: borderRadius.md,
                   },
                 ]}
-                placeholder="e.g. Weekly family groceries"
+                placeholder="e.g. Team dinner, Grocery restock"
                 placeholderTextColor={colors.textMuted}
                 value={description}
                 onChangeText={(val) => {
@@ -298,61 +325,85 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                 }}
               />
               {descriptionError && (
-                <Text style={[styles.errorText, { color: colors.danger }]}>{descriptionError}</Text>
+                <Text style={[styles.inlineError, { color: colors.danger }]}>
+                  {descriptionError}
+                </Text>
               )}
             </View>
-          </Card>
 
-          {/* Category Selector Grid */}
-          <Card style={{ marginVertical: 6 }}>
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary, marginBottom: 10 }]}>
-              Select Category (Manual)
-            </Text>
-            <View style={styles.categoriesGrid}>
-              {availableCategories.map((cat) => {
-                const isSelected = category === cat.id;
-                return (
-                  <TouchableOpacity
-                    key={cat.id}
-                    style={[
-                      styles.categoryOption,
-                      {
-                        backgroundColor: isSelected ? `${cat.color}25` : colors.surfaceElevated,
-                        borderColor: isSelected ? cat.color : colors.border,
-                        borderRadius: borderRadius.md,
-                      },
-                    ]}
-                    onPress={() => setCategory(cat.id as TransactionCategory)}
-                  >
-                    <Ionicons
-                      name={cat.icon as any}
-                      size={18}
-                      color={isSelected ? cat.color : colors.textMuted}
-                    />
-                    <Text
+            {/* Category Grid */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>CATEGORY</Text>
+              <View style={styles.categoryGrid}>
+                {availableCategories.map((cat) => {
+                  const isSelected = category === cat.id;
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
                       style={[
-                        styles.categoryOptionText,
+                        styles.categoryTile,
                         {
-                          color: isSelected ? cat.color : colors.textSecondary,
-                          fontWeight: isSelected ? '700' : '500',
+                          backgroundColor: isSelected ? `${cat.color}1C` : colors.surfaceElevated,
+                          borderColor: isSelected ? cat.color : colors.border,
+                          borderRadius: borderRadius.sm,
                         },
                       ]}
-                      numberOfLines={1}
+                      onPress={() => setCategory(cat.id)}
                     >
-                      {cat.name}
+                      <Ionicons
+                        name={cat.icon as any}
+                        size={15}
+                        color={isSelected ? cat.color : colors.textMuted}
+                        style={{ marginRight: 6 }}
+                      />
+                      <Text
+                        style={[
+                          styles.categoryTileText,
+                          {
+                            color: isSelected ? colors.textPrimary : colors.textSecondary,
+                            fontWeight: isSelected ? '600' : '400',
+                          },
+                        ]}
+                      >
+                        {cat.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Date with Quick Set Buttons */}
+            <View style={styles.inputGroup}>
+              <View style={styles.dateLabelRow}>
+                <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>
+                  DATE (YYYY-MM-DD)
+                </Text>
+                <View style={styles.quickDateRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.quickDateBtn,
+                      { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+                    ]}
+                    onPress={() => setQuickDate(0)}
+                  >
+                    <Text style={[styles.quickDateText, { color: colors.textSecondary }]}>
+                      Today
                     </Text>
                   </TouchableOpacity>
-                );
-              })}
-            </View>
-          </Card>
-
-          {/* Date & Notes */}
-          <Card style={{ marginVertical: 6 }}>
-            <View style={styles.inputGroup}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
-                Date (YYYY-MM-DD) <Text style={{ color: colors.danger }}>*</Text>
-              </Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.quickDateBtn,
+                      { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
+                    ]}
+                    onPress={() => setQuickDate(1)}
+                  >
+                    <Text style={[styles.quickDateText, { color: colors.textSecondary }]}>
+                      Yesterday
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
               <TextInput
                 style={[
                   styles.textInput,
@@ -363,7 +414,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                     borderRadius: borderRadius.md,
                   },
                 ]}
-                placeholder="YYYY-MM-DD"
+                placeholder="2026-11-03"
                 placeholderTextColor={colors.textMuted}
                 value={date}
                 onChangeText={(val) => {
@@ -372,14 +423,18 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                 }}
               />
               {dateError && (
-                <Text style={[styles.errorText, { color: colors.danger }]}>{dateError}</Text>
+                <Text style={[styles.inlineError, { color: colors.danger }]}>{dateError}</Text>
               )}
             </View>
 
-            <View style={[styles.inputGroup, { marginTop: 12 }]}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Optional Notes</Text>
+            {/* Additional Notes */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.textMuted }]}>
+                ADDITIONAL NOTES (OPTIONAL)
+              </Text>
               <TextInput
                 style={[
+                  styles.textInput,
                   styles.textArea,
                   {
                     backgroundColor: colors.surfaceElevated,
@@ -388,7 +443,7 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
                     borderRadius: borderRadius.md,
                   },
                 ]}
-                placeholder="Add tags, receipts, or personal reminders..."
+                placeholder="Payment reference, UPI transaction ID, invoice details..."
                 placeholderTextColor={colors.textMuted}
                 multiline
                 numberOfLines={3}
@@ -399,19 +454,20 @@ export const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({
           </Card>
 
           {/* Action Buttons */}
-          <View style={styles.actionsFooter}>
+          <View style={styles.actionSection}>
             <Button
-              title={isEditing ? 'Update Transaction in SQLite' : 'Save to Local SQLite'}
-              icon="checkmark-circle-outline"
-              variant={type === 'income' ? 'primary' : 'danger'}
+              title={isEditing ? 'Save Changes' : 'Record Transaction'}
+              variant="primary"
               size="lg"
+              icon="checkmark-outline"
               onPress={handleSave}
+              style={{ marginBottom: 10 }}
             />
             <Button
               title="Cancel"
               variant="ghost"
+              size="md"
               onPress={onClose}
-              style={{ marginTop: 8 }}
             />
           </View>
         </ScrollView>
@@ -425,7 +481,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingBottom: 40,
   },
   closeButton: {
@@ -433,95 +489,118 @@ const styles = StyleSheet.create({
     height: 36,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
   },
   typeSwitcher: {
     flexDirection: 'row',
-    padding: 4,
-    borderWidth: 1,
+    padding: 3,
     marginBottom: 12,
   },
   typeOption: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 9,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  typeOptionActive: {
+    borderWidth: 1,
   },
   typeOptionText: {
     fontSize: 13,
   },
   amountCard: {
     alignItems: 'center',
-    paddingVertical: 20,
-    marginBottom: 6,
+    paddingVertical: 18,
+    marginBottom: 12,
   },
   amountLabel: {
     fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    marginBottom: 8,
   },
   amountInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
+    justifyContent: 'center',
   },
   currencySymbol: {
-    fontSize: 34,
-    fontWeight: '800',
-    marginRight: 4,
+    fontSize: 30,
+    fontWeight: '700',
+    marginRight: 6,
   },
   amountInput: {
-    fontSize: 40,
-    fontWeight: '800',
+    fontSize: 36,
+    fontWeight: '700',
     minWidth: 120,
     textAlign: 'center',
+    letterSpacing: -0.5,
+  },
+  inlineError: {
+    fontSize: 11,
+    marginTop: 6,
+    fontWeight: '500',
+  },
+  formCard: {
+    padding: 16,
+    marginBottom: 14,
   },
   inputGroup: {
-    width: '100%',
+    marginBottom: 14,
   },
   fieldLabel: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
+    letterSpacing: 0.8,
     marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   textInput: {
-    height: 44,
+    height: 42,
     borderWidth: 1,
     paddingHorizontal: 12,
-    fontSize: 14,
+    fontSize: 13,
   },
   textArea: {
-    minHeight: 70,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 14,
+    height: 64,
+    paddingTop: 10,
     textAlignVertical: 'top',
   },
-  errorText: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  categoriesGrid: {
+  categoryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 7,
   },
-  categoryOption: {
+  categoryTile: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
     borderWidth: 1,
-    gap: 6,
   },
-  categoryOptionText: {
+  categoryTileText: {
     fontSize: 12,
   },
-  actionsFooter: {
-    marginTop: 16,
-    marginBottom: 20,
+  dateLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  quickDateRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  quickDateBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderRadius: 4,
+  },
+  quickDateText: {
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  actionSection: {
+    paddingVertical: 10,
   },
 });

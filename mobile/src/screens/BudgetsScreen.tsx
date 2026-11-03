@@ -32,7 +32,7 @@ interface BudgetsScreenProps {
 }
 
 export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged }) => {
-  const { colors, borderRadius } = useTheme();
+  const { colors, borderRadius, isDark } = useTheme();
 
   const [budgets, setBudgets] = useState<BudgetProgressSummary[]>([]);
   const [unbudgetedCats, setUnbudgetedCats] = useState<CategoryEntity[]>([]);
@@ -78,7 +78,6 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
     loadBudgetsFromDb();
   }, [loadBudgetsFromDb]);
 
-  // Total budget and spending metrics
   const totalLimit = budgets.reduce((sum, b) => sum + b.monthlyLimit, 0);
   const totalSpent = budgets.reduce((sum, b) => sum + b.spentAmount, 0);
   const overallRemaining = Math.max(totalLimit - totalSpent, 0);
@@ -86,7 +85,6 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
   const daysRemaining = Math.max(daysInMonth - now.getDate(), 0);
 
-  // Overspending Warning Items
   const overspentBudgets = budgets.filter((b) => b.isOverBudget);
   const warningBudgets = budgets.filter((b) => !b.isOverBudget && b.percentage >= 80);
 
@@ -136,7 +134,7 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
     }
     const cleanLimit = parseFloat(createLimitInput.replace(/[^0-9.]/g, ''));
     if (isNaN(cleanLimit) || cleanLimit <= 0) {
-      setCreateError('Please enter a valid monthly limit (₹)');
+      setCreateError('Please enter a valid monthly limit in ₹');
       return;
     }
 
@@ -159,14 +157,14 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <Header
         title="Budgets"
-        subtitle="Spending Guardrails (SQLite)"
+        subtitle={`${currentMonthName} ${currentYear} · Deterministic Guardrails`}
         rightAction={
           unbudgetedCats.length > 0 ? (
             <TouchableOpacity
               style={[
                 styles.addBudgetBtn,
                 {
-                  backgroundColor: colors.accent,
+                  backgroundColor: isDark ? '#FFFFFF' : '#0F172A',
                   borderRadius: borderRadius.md,
                 },
               ]}
@@ -176,33 +174,45 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
               }}
               accessibilityLabel="Create Category Budget"
             >
-              <Ionicons name="add" size={18} color="#FFFFFF" style={{ marginRight: 4 }} />
-              <Text style={styles.addBudgetBtnText}>Set Budget</Text>
+              <Ionicons
+                name="add"
+                size={16}
+                color={isDark ? '#090D16' : '#FFFFFF'}
+                style={{ marginRight: 4 }}
+              />
+              <Text
+                style={[
+                  styles.addBudgetBtnText,
+                  { color: isDark ? '#090D16' : '#FFFFFF' },
+                ]}
+              >
+                Set Limit
+              </Text>
             </TouchableOpacity>
           ) : undefined
         }
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Overspending Alert Banner (Requirement 4: Show overspending warnings) */}
+        {/* Overspending Alert Banner */}
         {overspentBudgets.length > 0 && (
           <View
             style={[
-              styles.overspendingBanner,
+              styles.alertBanner,
               {
                 backgroundColor: colors.dangerLight,
-                borderColor: colors.danger,
-                borderRadius: borderRadius.lg,
+                borderColor: `${colors.danger}30`,
+                borderRadius: borderRadius.md,
               },
             ]}
           >
-            <Ionicons name="warning" size={24} color={colors.danger} style={{ marginRight: 12 }} />
+            <Ionicons name="alert-circle" size={18} color={colors.danger} style={{ marginRight: 8 }} />
             <View style={{ flex: 1 }}>
-              <Text style={[styles.bannerTitle, { color: colors.danger }]}>
-                Overspending Warning ({overspentBudgets.length} {overspentBudgets.length === 1 ? 'Category' : 'Categories'})
+              <Text style={[styles.alertTitle, { color: colors.danger }]}>
+                Over Budget ({overspentBudgets.length} {overspentBudgets.length === 1 ? 'category' : 'categories'})
               </Text>
-              <Text style={[styles.bannerSub, { color: colors.textPrimary }]}>
-                {overspentBudgets.map((b) => `${b.categoryName} by ${formatINR(Math.abs(b.remainingAmount))}`).join(', ')}.
+              <Text style={[styles.alertSub, { color: colors.textSecondary }]}>
+                {overspentBudgets.map((b) => `${b.categoryName} by ${formatINR(Math.abs(b.remainingAmount))}`).join(', ')}
               </Text>
             </View>
           </View>
@@ -212,147 +222,170 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
         {warningBudgets.length > 0 && overspentBudgets.length === 0 && (
           <View
             style={[
-              styles.overspendingBanner,
+              styles.alertBanner,
               {
                 backgroundColor: colors.warningLight,
-                borderColor: colors.warning,
-                borderRadius: borderRadius.lg,
+                borderColor: `${colors.warning}30`,
+                borderRadius: borderRadius.md,
               },
             ]}
           >
-            <Ionicons name="alert-circle" size={22} color={colors.warning} style={{ marginRight: 10 }} />
+            <Ionicons name="information-circle" size={18} color={colors.warning} style={{ marginRight: 8 }} />
             <View style={{ flex: 1 }}>
-              <Text style={[styles.bannerTitle, { color: colors.warning }]}>
-                Budget Alert: Near Limit (&gt; 80%)
+              <Text style={[styles.alertTitle, { color: colors.warning }]}>
+                Near Budget Threshold (&gt; 80%)
               </Text>
-              <Text style={[styles.bannerSub, { color: colors.textPrimary }]}>
-                {warningBudgets.map((b) => `${b.categoryName} (${b.percentage.toFixed(0)}%)`).join(', ')}.
+              <Text style={[styles.alertSub, { color: colors.textSecondary }]}>
+                {warningBudgets.map((b) => `${b.categoryName} (${b.percentage.toFixed(0)}%)`).join(', ')}
               </Text>
             </View>
           </View>
         )}
 
-        {/* Master Monthly Budget Summary Card */}
-        <Card style={[styles.masterCard, { backgroundColor: colors.surface }]}>
+        {/* Master Monthly Budget Overview Card */}
+        <Card style={styles.masterCard}>
           <View style={styles.masterHeader}>
             <View>
               <Text style={[styles.masterCaption, { color: colors.textMuted }]}>
-                {currentMonthName.toUpperCase()} {currentYear} OVERALL BUDGET
+                MONTHLY UTILIZATION
               </Text>
               <Text style={[styles.masterLimit, { color: colors.textPrimary }]}>
                 {formatINR(totalSpent)}{' '}
-                <Text style={{ fontSize: 18, color: colors.textMuted, fontWeight: '500' }}>
+                <Text style={{ fontSize: 16, color: colors.textMuted, fontWeight: '400' }}>
                   / {formatINR(totalLimit)}
                 </Text>
               </Text>
             </View>
             <StatusBadge
-              label={`${daysRemaining} days left`}
-              icon="calendar-outline"
-              status="info"
+              label={`${daysRemaining}d remaining`}
+              icon="time-outline"
+              status="neutral"
             />
           </View>
 
           {/* Progress Bar */}
-          <View style={{ marginVertical: 14 }}>
-            <ProgressBar progress={overallRatio} height={10} autoThresholdColor />
+          <View style={{ marginVertical: 12 }}>
+            <ProgressBar
+              progress={overallRatio}
+              height={6}
+              color={overallRatio > 1 ? colors.danger : overallRatio > 0.8 ? colors.warning : colors.accent}
+            />
           </View>
 
-          <View style={styles.masterFooter}>
+          <View style={[styles.masterFooter, { borderTopColor: colors.borderSubtle }]}>
             <View>
-              <Text style={[styles.footerSub, { color: colors.textMuted }]}>REMAINING SAFE TO SPEND</Text>
+              <Text style={[styles.footerSub, { color: colors.textMuted }]}>SAFE TO SPEND</Text>
               <Text style={[styles.footerHighlight, { color: colors.success }]}>
                 {formatINR(overallRemaining)}
               </Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <Text style={[styles.footerSub, { color: colors.textMuted }]}>STATUS</Text>
-              <Text
-                style={[
-                  styles.footerHighlight,
-                  { color: overallRemaining > 0 ? colors.accentLight : colors.danger },
-                ]}
-              >
-                {overallRemaining > 0 ? 'On Track' : 'Cap Exceeded'}
+              <Text style={[styles.footerSub, { color: colors.textMuted }]}>UTILIZED</Text>
+              <Text style={[styles.footerHighlight, { color: colors.textPrimary }]}>
+                {(overallRatio * 100).toFixed(0)}%
               </Text>
             </View>
           </View>
         </Card>
 
-        {/* Category-wise Budgets Header */}
-        <View style={styles.sectionHeader}>
+        {/* Category Allowances Header */}
+        <View style={styles.sectionHeaderRow}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
             Category Allowances
           </Text>
           <Text style={[styles.sectionCount, { color: colors.textMuted }]}>
-            {budgets.length} monitored in SQLite
+            {budgets.length} active
           </Text>
         </View>
 
         {isLoading ? (
-          <ActivityIndicator size="small" color={colors.accent} style={{ marginVertical: 20 }} />
+          <ActivityIndicator size="small" color={colors.accent} style={{ marginVertical: 30 }} />
         ) : (
           budgets.map((b) => {
             const catMeta = (CATEGORIES as Record<string, any>)[b.categoryId] || {
               id: b.categoryId,
               name: b.categoryName,
-              icon: b.icon || 'folder-outline',
-              color: b.color || '#3B82F6',
-              type: 'expense' as const,
+              icon: b.icon || 'receipt-outline',
+              color: b.color || colors.accent,
             };
+
             const ratio = b.monthlyLimit > 0 ? b.spentAmount / b.monthlyLimit : 0;
-            const isOverBudget = b.isOverBudget;
+            const barColor = b.isOverBudget
+              ? colors.danger
+              : b.percentage >= 80
+              ? colors.warning
+              : colors.success;
 
             return (
-              <Card
-                key={b.id}
-                style={styles.categoryCard}
-                onPress={() => handleOpenEdit(b)}
-              >
-                <View style={styles.categoryRow}>
-                  {/* Category Icon */}
-                  <View
-                    style={[
-                      styles.catIconCircle,
-                      {
-                        backgroundColor: `${b.color}20`,
-                        borderRadius: borderRadius.md,
-                      },
-                    ]}
-                  >
-                    <Ionicons name={catMeta.icon as any} size={20} color={b.color} />
-                  </View>
-
-                  {/* Info */}
-                  <View style={styles.catInfo}>
-                    <View style={styles.catNameRow}>
+              <Card key={b.id} style={styles.budgetCard}>
+                <View style={styles.budgetTopRow}>
+                  {/* Category Badge & Name */}
+                  <View style={styles.catTitleGroup}>
+                    <View
+                      style={[
+                        styles.catIconBox,
+                        {
+                          backgroundColor: `${catMeta.color}14`,
+                          borderRadius: borderRadius.sm,
+                        },
+                      ]}
+                    >
+                      <Ionicons name={catMeta.icon as any} size={16} color={catMeta.color} />
+                    </View>
+                    <View>
                       <Text style={[styles.catName, { color: colors.textPrimary }]}>
                         {b.categoryName}
                       </Text>
-                      <Text style={[styles.catRemainingText, { color: isOverBudget ? colors.danger : colors.textMuted }]}>
-                        {isOverBudget
-                          ? `Over by ${formatINR(Math.abs(b.remainingAmount))}`
-                          : `${formatINR(b.remainingAmount)} left`}
-                      </Text>
-                    </View>
-
-                    {/* Progress Bar with utilization */}
-                    <View style={{ marginVertical: 8 }}>
-                      <ProgressBar progress={ratio} height={6} autoThresholdColor />
-                    </View>
-
-                    <View style={styles.catSpendingMeta}>
-                      <Text style={[styles.catSpendingAmount, { color: colors.textSecondary }]}>
-                        Spent: <Text style={{ fontWeight: '700', color: colors.textPrimary }}>{formatINR(b.spentAmount)}</Text>
-                      </Text>
-                      <Text style={[styles.catSpendingLimit, { color: colors.textMuted }]}>
-                        Cap: {formatINR(b.monthlyLimit)} ({b.percentage.toFixed(0)}%)
+                      <Text style={[styles.catSub, { color: colors.textMuted }]}>
+                        {formatINR(b.spentAmount)} of {formatINR(b.monthlyLimit)}
                       </Text>
                     </View>
                   </View>
 
-                  {/* Edit chevron */}
-                  <Ionicons name="create-outline" size={16} color={colors.textMuted} style={{ marginLeft: 8 }} />
+                  {/* Percentage & Edit Button */}
+                  <View style={styles.budgetActionGroup}>
+                    <Text
+                      style={[
+                        styles.percentageText,
+                        { color: b.isOverBudget ? colors.danger : colors.textPrimary },
+                      ]}
+                    >
+                      {b.percentage.toFixed(0)}%
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => handleOpenEdit(b)}
+                      style={[
+                        styles.editIconBtn,
+                        {
+                          backgroundColor: colors.surfaceElevated,
+                          borderColor: colors.border,
+                          borderRadius: borderRadius.sm,
+                        },
+                      ]}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="pencil" size={13} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Progress Bar */}
+                <View style={{ marginVertical: 10 }}>
+                  <ProgressBar progress={ratio} height={5} color={barColor} />
+                </View>
+
+                {/* Bottom Status Row */}
+                <View style={styles.budgetBottomRow}>
+                  <Text style={[styles.bottomStatusLabel, { color: colors.textMuted }]}>
+                    {b.isOverBudget
+                      ? `Exceeded by ${formatINR(Math.abs(b.remainingAmount))}`
+                      : `${formatINR(b.remainingAmount)} remaining`}
+                  </Text>
+                  <StatusBadge
+                    label={b.isOverBudget ? 'Over Limit' : b.percentage >= 80 ? 'Near Limit' : 'On Track'}
+                    status={b.isOverBudget ? 'danger' : b.percentage >= 80 ? 'warning' : 'success'}
+                    size="sm"
+                  />
                 </View>
               </Card>
             );
@@ -360,107 +393,7 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
         )}
       </ScrollView>
 
-      {/* Create New Category Budget Modal */}
-      <Modal
-        visible={showCreateModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowCreateModal(false)}
-      >
-        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
-          <View
-            style={[
-              styles.modalCard,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                borderRadius: borderRadius.xl,
-              },
-            ]}
-          >
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Create Category Budget</Text>
-              <TouchableOpacity onPress={() => setShowCreateModal(false)}>
-                <Ionicons name="close" size={22} color={colors.textMuted} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
-              Set a monthly spending limit for {currentMonthName} {currentYear}
-            </Text>
-
-            {/* Category Picker */}
-            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>SELECT CATEGORY</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {unbudgetedCats.map((cat) => {
-                  const isSelected = selectedCreateCatId === cat.id;
-                  return (
-                    <TouchableOpacity
-                      key={cat.id}
-                      style={[
-                        styles.catPill,
-                        {
-                          backgroundColor: isSelected ? `${cat.color}25` : colors.surfaceElevated,
-                          borderColor: isSelected ? cat.color : colors.border,
-                          borderRadius: borderRadius.md,
-                        },
-                      ]}
-                      onPress={() => setSelectedCreateCatId(cat.id)}
-                    >
-                      <Ionicons name={cat.icon as any} size={15} color={isSelected ? cat.color : colors.textMuted} />
-                      <Text
-                        style={[
-                          styles.catPillText,
-                          { color: isSelected ? cat.color : colors.textPrimary, fontWeight: isSelected ? '700' : '500' },
-                        ]}
-                      >
-                        {cat.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </ScrollView>
-
-            {/* Monthly Limit Input */}
-            <View style={styles.modalInputWrapper}>
-              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>MONTHLY LIMIT (₹)</Text>
-              <TextInput
-                style={[
-                  styles.modalInput,
-                  {
-                    backgroundColor: colors.surfaceElevated,
-                    borderColor: createError ? colors.danger : colors.border,
-                    color: colors.textPrimary,
-                    borderRadius: borderRadius.md,
-                  },
-                ]}
-                placeholder="e.g. 5000.00"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="decimal-pad"
-                value={createLimitInput}
-                onChangeText={setCreateLimitInput}
-              />
-              {createError && (
-                <Text style={[styles.errorSub, { color: colors.danger }]}>{createError}</Text>
-              )}
-            </View>
-
-            <View style={styles.modalActions}>
-              <Button title="Save Budget to SQLite" onPress={handleCreateBudget} />
-              <Button
-                title="Cancel"
-                variant="ghost"
-                onPress={() => setShowCreateModal(false)}
-                style={{ marginTop: 6 }}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Edit Budget Limit Modal */}
+      {/* Edit Budget Modal */}
       {editingBudget && (
         <Modal
           visible={!!editingBudget}
@@ -475,61 +408,165 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
                 {
                   backgroundColor: colors.surface,
                   borderColor: colors.border,
-                  borderRadius: borderRadius.xl,
+                  borderRadius: borderRadius.lg,
                 },
               ]}
             >
               <View style={styles.modalHeader}>
                 <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                  Edit {editingBudget.categoryName} Budget
+                  Edit {editingBudget.categoryName} Limit
                 </Text>
                 <TouchableOpacity onPress={() => setEditingBudget(null)}>
-                  <Ionicons name="close" size={22} color={colors.textMuted} />
+                  <Ionicons name="close" size={20} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
 
-              <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
-                Current spending in SQLite: {formatINR(editingBudget.spentAmount)}
+              <Text style={[styles.inputLabel, { color: colors.textMuted }]}>
+                NEW MONTHLY LIMIT (₹)
               </Text>
+              <TextInput
+                style={[
+                  styles.modalInput,
+                  {
+                    backgroundColor: colors.surfaceElevated,
+                    borderColor: colors.border,
+                    color: colors.textPrimary,
+                    borderRadius: borderRadius.md,
+                  },
+                ]}
+                keyboardType="decimal-pad"
+                value={editLimitInput}
+                onChangeText={setEditLimitInput}
+                autoFocus
+              />
 
-              <View style={styles.modalInputWrapper}>
-                <Text style={[styles.inputLabel, { color: colors.textMuted }]}>NEW MONTHLY LIMIT (₹)</Text>
-                <TextInput
-                  style={[
-                    styles.modalInput,
-                    {
-                      backgroundColor: colors.surfaceElevated,
-                      borderColor: colors.border,
-                      color: colors.textPrimary,
-                      borderRadius: borderRadius.md,
-                    },
-                  ]}
-                  keyboardType="decimal-pad"
-                  value={editLimitInput}
-                  onChangeText={setEditLimitInput}
-                  autoFocus
-                />
-              </View>
-
-              <View style={styles.modalActions}>
-                <Button title="Save to SQLite" onPress={handleSaveBudgetLimit} />
+              <View style={styles.modalActionRow}>
                 <Button
-                  title="Remove Budget"
+                  title="Remove"
                   variant="danger"
+                  size="md"
+                  icon="trash-outline"
                   onPress={() => handleDeleteBudget(editingBudget.id)}
-                  style={{ marginTop: 6 }}
+                  style={{ flex: 1, marginRight: 8 }}
                 />
                 <Button
-                  title="Cancel"
-                  variant="ghost"
-                  onPress={() => setEditingBudget(null)}
-                  style={{ marginTop: 6 }}
+                  title="Save Limit"
+                  variant="primary"
+                  size="md"
+                  icon="checkmark-outline"
+                  onPress={handleSaveBudgetLimit}
+                  style={{ flex: 1 }}
                 />
               </View>
             </View>
           </View>
         </Modal>
       )}
+
+      {/* Create Budget Modal */}
+      <Modal
+        visible={showCreateModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCreateModal(false)}
+      >
+        <View style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                borderRadius: borderRadius.lg,
+              },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                Set Category Budget
+              </Text>
+              <TouchableOpacity onPress={() => setShowCreateModal(false)}>
+                <Ionicons name="close" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>SELECT CATEGORY</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+              {unbudgetedCats.map((cat) => {
+                const isSelected = selectedCreateCatId === cat.id;
+                return (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[
+                      styles.catSelectChip,
+                      {
+                        backgroundColor: isSelected ? `${cat.color}1C` : colors.surfaceElevated,
+                        borderColor: isSelected ? cat.color : colors.border,
+                        borderRadius: borderRadius.sm,
+                      },
+                    ]}
+                    onPress={() => setSelectedCreateCatId(cat.id)}
+                  >
+                    <Text
+                      style={[
+                        styles.catSelectText,
+                        {
+                          color: isSelected ? colors.textPrimary : colors.textSecondary,
+                          fontWeight: isSelected ? '600' : '400',
+                        },
+                      ]}
+                    >
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <Text style={[styles.inputLabel, { color: colors.textMuted }]}>MONTHLY LIMIT (₹)</Text>
+            <TextInput
+              style={[
+                styles.modalInput,
+                {
+                  backgroundColor: colors.surfaceElevated,
+                  borderColor: createError ? colors.danger : colors.border,
+                  color: colors.textPrimary,
+                  borderRadius: borderRadius.md,
+                },
+              ]}
+              placeholder="e.g. 5000"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="decimal-pad"
+              value={createLimitInput}
+              onChangeText={(val) => {
+                setCreateLimitInput(val);
+                if (createError) setCreateError(null);
+              }}
+            />
+            {createError && (
+              <Text style={[styles.inlineError, { color: colors.danger }]}>{createError}</Text>
+            )}
+
+            <View style={[styles.modalActionRow, { marginTop: 14 }]}>
+              <Button
+                title="Cancel"
+                variant="ghost"
+                size="md"
+                onPress={() => setShowCreateModal(false)}
+                style={{ flex: 1, marginRight: 8 }}
+              />
+              <Button
+                title="Set Budget"
+                variant="primary"
+                size="md"
+                icon="checkmark-outline"
+                onPress={handleCreateBudget}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -539,38 +576,37 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingBottom: 110,
   },
   addBudgetBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
     paddingVertical: 7,
+    paddingHorizontal: 12,
   },
   addBudgetBtnText: {
-    color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  overspendingBanner: {
+  alertBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
+    padding: 12,
     borderWidth: 1,
     marginBottom: 12,
   },
-  bannerTitle: {
+  alertTitle: {
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '600',
+    marginBottom: 2,
   },
-  bannerSub: {
-    fontSize: 12,
-    marginTop: 2,
+  alertSub: {
+    fontSize: 11,
   },
   masterCard: {
-    padding: 20,
-    marginBottom: 16,
+    padding: 16,
+    marginBottom: 14,
   },
   masterHeader: {
     flexDirection: 'row',
@@ -579,148 +615,150 @@ const styles = StyleSheet.create({
   },
   masterCaption: {
     fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    marginBottom: 4,
   },
   masterLimit: {
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    marginTop: 4,
+    fontSize: 22,
+    fontWeight: '700',
+    letterSpacing: -0.4,
   },
   masterFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
   },
   footerSub: {
     fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    marginBottom: 2,
   },
   footerHighlight: {
-    fontSize: 18,
-    fontWeight: '800',
-    marginTop: 2,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: -0.3,
-  },
-  sectionCount: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  categoryCard: {
-    marginVertical: 4,
-    padding: 14,
-  },
-  categoryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  catIconCircle: {
-    width: 42,
-    height: 42,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  catInfo: {
-    flex: 1,
-  },
-  catNameRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  catName: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
     letterSpacing: -0.2,
   },
-  catRemainingText: {
-    fontSize: 12,
-    fontWeight: '600',
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 2,
   },
-  catSpendingMeta: {
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  sectionCount: {
+    fontSize: 12,
+  },
+  budgetCard: {
+    padding: 14,
+    marginBottom: 8,
+  },
+  budgetTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  catSpendingAmount: {
-    fontSize: 12,
+  catTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
-  catSpendingLimit: {
+  catIconBox: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  catName: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  catSub: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  budgetActionGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  percentageText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  editIconBtn: {
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  budgetBottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  bottomStatusLabel: {
     fontSize: 11,
   },
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 20,
   },
   modalCard: {
     width: '100%',
-    padding: 22,
+    maxWidth: 380,
+    padding: 18,
     borderWidth: 1,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 14,
   },
   modalTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  modalSubtitle: {
-    fontSize: 13,
-    marginBottom: 16,
-  },
-  modalInputWrapper: {
-    marginBottom: 16,
+    fontSize: 15,
+    fontWeight: '600',
   },
   inputLabel: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '600',
     letterSpacing: 0.8,
     marginBottom: 6,
   },
   modalInput: {
-    height: 44,
+    height: 42,
     borderWidth: 1,
     paddingHorizontal: 12,
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 14,
+    marginBottom: 10,
   },
-  errorSub: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  catPill: {
+  modalActionRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
+  },
+  catSelectChip: {
+    paddingHorizontal: 12,
     paddingVertical: 7,
     borderWidth: 1,
-    gap: 6,
+    marginRight: 6,
   },
-  catPillText: {
+  catSelectText: {
     fontSize: 12,
   },
-  modalActions: {
-    marginTop: 8,
+  inlineError: {
+    fontSize: 11,
+    marginBottom: 8,
   },
 });

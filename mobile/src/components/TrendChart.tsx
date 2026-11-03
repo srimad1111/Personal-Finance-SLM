@@ -10,9 +10,9 @@ interface TrendChartProps {
 export const TrendChart: React.FC<TrendChartProps> = ({ trends }) => {
   const { colors, borderRadius } = useTheme();
 
-  // Find max value to normalize heights for INR scale
+  // Normalize heights against maximum value with minimum baseline
   const maxVal = Math.max(...trends.flatMap((t) => [t.income, t.expense]), 50000);
-  const chartHeight = 140;
+  const chartHeight = 130;
 
   return (
     <View style={styles.container}>
@@ -20,19 +20,27 @@ export const TrendChart: React.FC<TrendChartProps> = ({ trends }) => {
       <View style={styles.legendRow}>
         <View style={styles.legendItem}>
           <View style={[styles.legendIndicator, { backgroundColor: colors.success }]} />
-          <Text style={[styles.legendText, { color: colors.textSecondary }]}>Income</Text>
+          <Text style={[styles.legendText, { color: colors.textSecondary }]}>Inflow</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendIndicator, { backgroundColor: colors.danger }]} />
-          <Text style={[styles.legendText, { color: colors.textSecondary }]}>Expenses</Text>
+          <Text style={[styles.legendText, { color: colors.textSecondary }]}>Outflow</Text>
         </View>
       </View>
 
-      {/* Bar Chart Area */}
+      {/* Bar Chart Area with subtle background hairline guides */}
       <View style={[styles.chartArea, { height: chartHeight }]}>
+        {/* Subtle gridline guide at 50% */}
+        <View
+          style={[
+            styles.gridLine,
+            { top: chartHeight * 0.5, backgroundColor: colors.borderSubtle },
+          ]}
+        />
+
         {trends.map((item) => {
-          const incomeHeight = (item.income / maxVal) * chartHeight;
-          const expenseHeight = (item.expense / maxVal) * chartHeight;
+          const incomeHeight = Math.max((item.income / maxVal) * (chartHeight - 16), 4);
+          const expenseHeight = Math.max((item.expense / maxVal) * (chartHeight - 16), 4);
 
           return (
             <View key={item.month} style={styles.columnContainer}>
@@ -44,7 +52,8 @@ export const TrendChart: React.FC<TrendChartProps> = ({ trends }) => {
                     {
                       height: incomeHeight,
                       backgroundColor: colors.success,
-                      borderRadius: borderRadius.sm,
+                      borderTopLeftRadius: borderRadius.xs,
+                      borderTopRightRadius: borderRadius.xs,
                     },
                   ]}
                 />
@@ -55,7 +64,8 @@ export const TrendChart: React.FC<TrendChartProps> = ({ trends }) => {
                     {
                       height: expenseHeight,
                       backgroundColor: colors.danger,
-                      borderRadius: borderRadius.sm,
+                      borderTopLeftRadius: borderRadius.xs,
+                      borderTopRightRadius: borderRadius.xs,
                     },
                   ]}
                 />
@@ -71,27 +81,27 @@ export const TrendChart: React.FC<TrendChartProps> = ({ trends }) => {
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 10,
+    marginVertical: 6,
   },
   legendRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 16,
-    marginBottom: 12,
+    gap: 14,
+    marginBottom: 10,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   legendIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
   },
   legendText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '500',
   },
   chartArea: {
     flexDirection: 'row',
@@ -99,7 +109,14 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingBottom: 22,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(150, 150, 150, 0.15)',
+    borderBottomColor: 'rgba(150, 150, 150, 0.12)',
+    position: 'relative',
+  },
+  gridLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 1,
   },
   columnContainer: {
     alignItems: 'center',
@@ -108,19 +125,17 @@ const styles = StyleSheet.create({
   barsGroup: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 4,
+    gap: 3,
     height: '100%',
   },
   bar: {
-    width: 10,
+    width: 8,
     minHeight: 4,
   },
   monthLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    marginTop: 6,
+    fontWeight: '500',
     position: 'absolute',
-    bottom: -20,
+    bottom: -18,
   },
 });
-

@@ -17,7 +17,7 @@ import { Button } from '../components/Button';
 import { useTheme } from '../theme';
 import { CATEGORIES } from '../data/mockData';
 import { Transaction } from '../types';
-import { formatTransactionAmount } from '../utils/currency';
+import { formatINR, formatTransactionAmount } from '../utils/currency';
 
 type SortOption = 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc';
 
@@ -34,10 +34,10 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
   onEditTransaction,
   onDeleteTransaction,
 }) => {
-  const { colors, borderRadius } = useTheme();
+  const { colors, borderRadius, isDark } = useTheme();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'income' | 'expense'>('all');
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'expense' | 'income'>('all');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('date_desc');
   const [showSortModal, setShowSortModal] = useState(false);
@@ -45,7 +45,6 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
 
   // Deterministic Filtering and Sorting
   const processedTransactions = useMemo(() => {
-    // 1. Filter
     const filtered = transactions.filter((tx) => {
       if (selectedFilter !== 'all' && tx.type !== selectedFilter) return false;
       if (selectedCategory && tx.category !== selectedCategory) return false;
@@ -61,7 +60,6 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
       return true;
     });
 
-    // 2. Deterministic Sort
     return filtered.sort((a, b) => {
       switch (sortBy) {
         case 'date_desc':
@@ -78,7 +76,6 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
     });
   }, [transactions, selectedFilter, selectedCategory, searchQuery, sortBy]);
 
-  // Real deterministic sums for the filtered view
   const currentTotalIncome = processedTransactions
     .filter((t) => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
@@ -103,23 +100,23 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
   const getSortLabel = (s: SortOption): string => {
     switch (s) {
       case 'date_desc':
-        return 'Date: Newest';
+        return 'Newest';
       case 'date_asc':
-        return 'Date: Oldest';
+        return 'Oldest';
       case 'amount_desc':
-        return 'Amount: High to Low';
+        return 'Highest';
       case 'amount_asc':
-        return 'Amount: Low to High';
+        return 'Lowest';
     }
   };
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <Header
-        title="Transactions"
-        subtitle={`${processedTransactions.length} recorded in SQLite`}
+        title="Activity"
+        subtitle={`${processedTransactions.length} transactions recorded`}
         rightAction={
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
             <TouchableOpacity
               style={[
                 styles.iconBtn,
@@ -132,41 +129,41 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
               onPress={() => setShowSortModal(true)}
               accessibilityLabel="Sort Transactions"
             >
-              <Ionicons name="swap-vertical-outline" size={18} color={colors.textPrimary} />
+              <Ionicons name="swap-vertical-outline" size={16} color={colors.textPrimary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.iconBtn,
                 {
-                  backgroundColor: colors.accent,
+                  backgroundColor: isDark ? '#FFFFFF' : '#0F172A',
                   borderRadius: borderRadius.md,
                 },
               ]}
               onPress={onOpenAddModal}
               accessibilityLabel="Add Transaction"
             >
-              <Ionicons name="add" size={20} color="#FFFFFF" />
+              <Ionicons name="add" size={19} color={isDark ? '#090D16' : '#FFFFFF'} />
             </TouchableOpacity>
           </View>
         }
       />
 
-      {/* Search Input */}
+      {/* Integrated Search Bar */}
       <View style={styles.searchWrapper}>
         <View
           style={[
             styles.searchBar,
             {
-              backgroundColor: colors.surfaceElevated,
+              backgroundColor: colors.surface,
               borderColor: colors.border,
               borderRadius: borderRadius.md,
             },
           ]}
         >
-          <Ionicons name="search-outline" size={18} color={colors.textMuted} style={styles.searchIcon} />
+          <Ionicons name="search-outline" size={16} color={colors.textMuted} style={styles.searchIcon} />
           <TextInput
             style={[styles.searchInput, { color: colors.textPrimary }]}
-            placeholder="Search merchant, item, category..."
+            placeholder="Search merchant, item, or category..."
             placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -174,83 +171,96 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+              <Ionicons name="close-circle" size={16} color={colors.textMuted} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {/* Filter Tabs & Active Sort Chip */}
+      {/* Segmented Type Bar & Category Filter Scroll */}
       <View style={styles.filtersWrapper}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-          {/* Active Sort Pill */}
-          <TouchableOpacity
-            style={[
-              styles.filterChip,
-              {
-                backgroundColor: colors.surfaceElevated,
-                borderColor: colors.accent,
-                borderRadius: borderRadius.full,
-              },
-            ]}
-            onPress={() => setShowSortModal(true)}
-          >
-            <Ionicons name="filter-outline" size={12} color={colors.accent} style={{ marginRight: 4 }} />
-            <Text style={[styles.filterChipText, { color: colors.accent, fontWeight: '700' }]}>
-              {getSortLabel(sortBy)}
-            </Text>
-          </TouchableOpacity>
-
-          <View style={[styles.filterDivider, { backgroundColor: colors.borderSubtle }]} />
-
-          {/* Type filters */}
+        {/* Segmented Control (Linear / Apple Style) */}
+        <View
+          style={[
+            styles.segmentedBar,
+            {
+              backgroundColor: colors.surfaceElevated,
+              borderRadius: borderRadius.md,
+            },
+          ]}
+        >
           {(['all', 'expense', 'income'] as const).map((filter) => {
             const isActive = selectedFilter === filter;
             return (
               <TouchableOpacity
                 key={filter}
                 style={[
-                  styles.filterChip,
-                  {
-                    backgroundColor: isActive ? colors.accent : colors.surfaceElevated,
-                    borderColor: isActive ? colors.accent : colors.border,
-                    borderRadius: borderRadius.full,
-                  },
+                  styles.segmentButton,
+                  isActive && [
+                    styles.segmentButtonActive,
+                    {
+                      backgroundColor: colors.surface,
+                      borderRadius: borderRadius.sm,
+                      borderColor: colors.border,
+                    },
+                  ],
                 ]}
                 onPress={() => setSelectedFilter(filter)}
               >
                 <Text
                   style={[
-                    styles.filterChipText,
+                    styles.segmentText,
                     {
-                      color: isActive ? '#FFFFFF' : colors.textSecondary,
-                      fontWeight: isActive ? '700' : '500',
+                      color: isActive ? colors.textPrimary : colors.textMuted,
+                      fontWeight: isActive ? '600' : '500',
                     },
                   ]}
                 >
-                  {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                  {filter === 'all' ? 'All' : filter === 'expense' ? 'Expenses' : 'Income'}
                 </Text>
               </TouchableOpacity>
             );
           })}
+        </View>
 
-          <View style={[styles.filterDivider, { backgroundColor: colors.borderSubtle }]} />
+        {/* Category Horizontal Filter Tags */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryScroll}
+        >
+          {/* Active Sort Indicator */}
+          <TouchableOpacity
+            style={[
+              styles.categoryChip,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                borderRadius: borderRadius.sm,
+              },
+            ]}
+            onPress={() => setShowSortModal(true)}
+          >
+            <Ionicons name="filter-outline" size={11} color={colors.textMuted} style={{ marginRight: 4 }} />
+            <Text style={[styles.categoryChipText, { color: colors.textSecondary }]}>
+              {getSortLabel(sortBy)}
+            </Text>
+          </TouchableOpacity>
 
-          {/* Category Filter Pills */}
           {selectedCategory && (
             <TouchableOpacity
               style={[
-                styles.filterChip,
+                styles.categoryChip,
                 {
                   backgroundColor: colors.dangerLight,
-                  borderColor: colors.danger,
-                  borderRadius: borderRadius.full,
+                  borderColor: `${colors.danger}40`,
+                  borderRadius: borderRadius.sm,
                 },
               ]}
               onPress={() => setSelectedCategory(null)}
             >
-              <Text style={[styles.filterChipText, { color: colors.danger, fontWeight: '700' }]}>
-                Clear Category ×
+              <Text style={[styles.categoryChipText, { color: colors.danger, fontWeight: '600' }]}>
+                Clear Filter ×
               </Text>
             </TouchableOpacity>
           )}
@@ -261,27 +271,27 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
               <TouchableOpacity
                 key={cat.id}
                 style={[
-                  styles.filterChip,
+                  styles.categoryChip,
                   {
-                    backgroundColor: isCatActive ? `${cat.color}25` : colors.surfaceElevated,
+                    backgroundColor: isCatActive ? `${cat.color}18` : colors.surface,
                     borderColor: isCatActive ? cat.color : colors.border,
-                    borderRadius: borderRadius.full,
+                    borderRadius: borderRadius.sm,
                   },
                 ]}
                 onPress={() => setSelectedCategory(isCatActive ? null : cat.id)}
               >
                 <Ionicons
                   name={cat.icon as any}
-                  size={12}
+                  size={11}
                   color={isCatActive ? cat.color : colors.textMuted}
                   style={{ marginRight: 4 }}
                 />
                 <Text
                   style={[
-                    styles.filterChipText,
+                    styles.categoryChipText,
                     {
                       color: isCatActive ? cat.color : colors.textSecondary,
-                      fontWeight: isCatActive ? '700' : '500',
+                      fontWeight: isCatActive ? '600' : '500',
                     },
                   ]}
                 >
@@ -293,75 +303,96 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
         </ScrollView>
       </View>
 
-      {/* Filtered Financial Summary Mini-strip */}
-      <View style={[styles.summaryStrip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+      {/* Filtered Financial Mini-Strip */}
+      <View
+        style={[
+          styles.summaryStrip,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
+      >
         <View style={styles.summaryItem}>
           <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>INFLOW</Text>
           <Text style={[styles.summaryValue, { color: colors.success }]}>
-            +${currentTotalIncome.toFixed(2)}
+            +{formatINR(currentTotalIncome)}
           </Text>
         </View>
-        <View style={[styles.stripDivider, { backgroundColor: colors.border }]} />
+        <View style={[styles.stripDivider, { backgroundColor: colors.borderSubtle }]} />
         <View style={styles.summaryItem}>
           <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>OUTFLOW</Text>
           <Text style={[styles.summaryValue, { color: colors.danger }]}>
-            -${currentTotalExpense.toFixed(2)}
+            -{formatINR(currentTotalExpense)}
           </Text>
         </View>
-        <View style={[styles.stripDivider, { backgroundColor: colors.border }]} />
+        <View style={[styles.stripDivider, { backgroundColor: colors.borderSubtle }]} />
         <View style={styles.summaryItem}>
           <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>NET</Text>
           <Text
             style={[
               styles.summaryValue,
-              { color: currentTotalIncome >= currentTotalExpense ? colors.textPrimary : colors.danger },
+              {
+                color:
+                  currentTotalIncome >= currentTotalExpense ? colors.textPrimary : colors.danger,
+              },
             ]}
           >
-            ${(currentTotalIncome - currentTotalExpense).toFixed(2)}
+            {formatINR(currentTotalIncome - currentTotalExpense)}
           </Text>
         </View>
       </View>
 
-      {/* Transaction List */}
+      {/* Transaction List (Single Clean Container with Hairline Dividers) */}
       <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
         {processedTransactions.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="receipt-outline" size={48} color={colors.textMuted} />
-            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>No transactions found</Text>
+            <Ionicons name="receipt-outline" size={40} color={colors.textMuted} />
+            <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
+              No transactions found
+            </Text>
             <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
-              Try altering your search or active filter filters.
+              Try adjusting your search query or active filter tags.
             </Text>
           </View>
         ) : (
-          processedTransactions.map((tx) => {
-            const categoryMeta = CATEGORIES[tx.category] || CATEGORIES.misc;
-            const isIncome = tx.type === 'income';
+          <Card style={styles.transactionsCard}>
+            {processedTransactions.map((tx, index) => {
+              const categoryMeta = CATEGORIES[tx.category] || {
+                id: tx.category,
+                name: tx.category,
+                icon: 'receipt-outline',
+                color: colors.accent,
+                type: tx.type,
+              };
+              const isIncome = tx.type === 'income';
+              const isLast = index === processedTransactions.length - 1;
 
-            return (
-              <Card
-                key={tx.id}
-                style={styles.txCard}
-                onPress={() => setInspectTx(tx)}
-              >
-                <View style={styles.txRow}>
+              return (
+                <TouchableOpacity
+                  key={tx.id}
+                  activeOpacity={0.7}
+                  onPress={() => setInspectTx(tx)}
+                  style={[
+                    styles.txRow,
+                    !isLast && { borderBottomColor: colors.borderSubtle, borderBottomWidth: 1 },
+                  ]}
+                >
                   {/* Category Icon */}
                   <View
                     style={[
                       styles.txIconContainer,
                       {
-                        backgroundColor: `${categoryMeta.color}1F`,
-                        borderRadius: borderRadius.md,
+                        backgroundColor: `${categoryMeta.color}14`,
+                        borderRadius: borderRadius.sm,
                       },
                     ]}
                   >
                     <Ionicons
                       name={categoryMeta.icon as any}
-                      size={20}
+                      size={17}
                       color={categoryMeta.color}
                     />
                   </View>
 
-                  {/* Info */}
+                  {/* Details */}
                   <View style={styles.txInfo}>
                     <Text style={[styles.txTitle, { color: colors.textPrimary }]} numberOfLines={1}>
                       {tx.merchant || tx.description}
@@ -372,16 +403,16 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                       </Text>
                       {tx.isAiCategorized && (
                         <StatusBadge
-                          label="SLM Tagged"
-                          icon="hardware-chip-outline"
+                          label="SLM"
                           status="ai"
+                          size="sm"
                           style={{ marginLeft: 6 }}
                         />
                       )}
                     </View>
                   </View>
 
-                  {/* Price and Date */}
+                  {/* Amount and Date */}
                   <View style={styles.txAmountContainer}>
                     <Text
                       style={[
@@ -393,10 +424,10 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                     </Text>
                     <Text style={[styles.txDate, { color: colors.textMuted }]}>{tx.date}</Text>
                   </View>
-                </View>
-              </Card>
-            );
-          })
+                </TouchableOpacity>
+              );
+            })}
+          </Card>
         )}
       </ScrollView>
 
@@ -418,11 +449,13 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
               {
                 backgroundColor: colors.surface,
                 borderColor: colors.border,
-                borderRadius: borderRadius.xl,
+                borderRadius: borderRadius.lg,
               },
             ]}
           >
-            <Text style={[styles.sortModalTitle, { color: colors.textPrimary }]}>Sort Transactions</Text>
+            <Text style={[styles.sortModalTitle, { color: colors.textPrimary }]}>
+              Sort Transactions
+            </Text>
             {(
               [
                 ['date_desc', 'Date: Newest First'],
@@ -437,7 +470,10 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                   key={val}
                   style={[
                     styles.sortOptionRow,
-                    isSelected && { backgroundColor: colors.surfaceElevated, borderRadius: borderRadius.md },
+                    isSelected && {
+                      backgroundColor: colors.surfaceElevated,
+                      borderRadius: borderRadius.sm,
+                    },
                   ]}
                   onPress={() => {
                     setSortBy(val);
@@ -447,12 +483,15 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                   <Text
                     style={[
                       styles.sortOptionText,
-                      { color: isSelected ? colors.accent : colors.textPrimary, fontWeight: isSelected ? '700' : '500' },
+                      {
+                        color: isSelected ? colors.textPrimary : colors.textSecondary,
+                        fontWeight: isSelected ? '600' : '400',
+                      },
                     ]}
                   >
                     {label}
                   </Text>
-                  {isSelected && <Ionicons name="checkmark" size={18} color={colors.accent} />}
+                  {isSelected && <Ionicons name="checkmark" size={16} color={colors.accent} />}
                 </TouchableOpacity>
               );
             })}
@@ -460,7 +499,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
         </TouchableOpacity>
       </Modal>
 
-      {/* Transaction Details, Edit & Delete Modal */}
+      {/* Transaction Details & Action Modal (Mercury Style) */}
       {inspectTx && (
         <Modal
           visible={!!inspectTx}
@@ -475,14 +514,16 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                 {
                   backgroundColor: colors.surface,
                   borderColor: colors.border,
-                  borderRadius: borderRadius.xl,
+                  borderRadius: borderRadius.lg,
                 },
               ]}
             >
               <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Transaction Details</Text>
+                <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
+                  Transaction Details
+                </Text>
                 <TouchableOpacity onPress={() => setInspectTx(null)}>
-                  <Ionicons name="close" size={22} color={colors.textMuted} />
+                  <Ionicons name="close" size={20} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
 
@@ -491,20 +532,21 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
                 style={[
                   styles.modalAmountBanner,
                   {
-                    backgroundColor: inspectTx.type === 'income' ? colors.successLight : colors.dangerLight,
-                    borderRadius: borderRadius.lg,
+                    backgroundColor: colors.surfaceElevated,
+                    borderColor: colors.border,
+                    borderRadius: borderRadius.md,
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.modalAmount,
-                    { color: inspectTx.type === 'income' ? colors.success : colors.danger },
+                    { color: inspectTx.type === 'income' ? colors.success : colors.textPrimary },
                   ]}
                 >
                   {formatTransactionAmount(inspectTx.amount, inspectTx.type)}
                 </Text>
-                <Text style={[styles.modalTypeLabel, { color: colors.textSecondary }]}>
+                <Text style={[styles.modalTypeLabel, { color: colors.textMuted }]}>
                   {inspectTx.type === 'income' ? 'CREDIT / INFLOW' : 'DEBIT / OUTFLOW'}
                 </Text>
               </View>
@@ -512,7 +554,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
               {/* Data Rows */}
               <View style={styles.modalRows}>
                 <View style={[styles.modalRow, { borderBottomColor: colors.borderSubtle }]}>
-                  <Text style={[styles.modalRowLabel, { color: colors.textMuted }]}>Merchant / Payee</Text>
+                  <Text style={[styles.modalRowLabel, { color: colors.textMuted }]}>Merchant</Text>
                   <Text style={[styles.modalRowValue, { color: colors.textPrimary }]}>
                     {inspectTx.merchant || 'N/A'}
                   </Text>
@@ -527,56 +569,45 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
 
                 <View style={[styles.modalRow, { borderBottomColor: colors.borderSubtle }]}>
                   <Text style={[styles.modalRowLabel, { color: colors.textMuted }]}>Category</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Ionicons
-                      name={CATEGORIES[inspectTx.category]?.icon as any}
-                      size={15}
-                      color={CATEGORIES[inspectTx.category]?.color}
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text style={[styles.modalRowValue, { color: colors.textPrimary }]}>
-                      {CATEGORIES[inspectTx.category]?.name}
-                    </Text>
-                  </View>
+                  <Text style={[styles.modalRowValue, { color: colors.textPrimary }]}>
+                    {CATEGORIES[inspectTx.category]?.name || inspectTx.category}
+                  </Text>
                 </View>
 
                 <View style={[styles.modalRow, { borderBottomColor: colors.borderSubtle }]}>
                   <Text style={[styles.modalRowLabel, { color: colors.textMuted }]}>Date</Text>
-                  <Text style={[styles.modalRowValue, { color: colors.textPrimary }]}>{inspectTx.date}</Text>
+                  <Text style={[styles.modalRowValue, { color: colors.textPrimary }]}>
+                    {inspectTx.date}
+                  </Text>
                 </View>
 
                 {inspectTx.notes && (
-                  <View style={[styles.modalRow, { borderBottomWidth: 0 }]}>
+                  <View style={[styles.modalRow, { borderBottomColor: colors.borderSubtle }]}>
                     <Text style={[styles.modalRowLabel, { color: colors.textMuted }]}>Notes</Text>
-                    <Text style={[styles.modalRowValue, { color: colors.textSecondary }]}>
+                    <Text style={[styles.modalRowValue, { color: colors.textPrimary }]}>
                       {inspectTx.notes}
                     </Text>
                   </View>
                 )}
               </View>
 
-              {/* Action Buttons: Edit, Delete, Close */}
-              <View style={{ marginTop: 16, gap: 8 }}>
-                {onEditTransaction && (
-                  <Button
-                    title="Edit Transaction"
-                    icon="create-outline"
-                    variant="primary"
-                    onPress={() => handleEdit(inspectTx)}
-                  />
-                )}
-                {onDeleteTransaction && (
-                  <Button
-                    title="Delete Transaction"
-                    icon="trash-outline"
-                    variant="danger"
-                    onPress={() => handleDelete(inspectTx)}
-                  />
-                )}
+              {/* Action Buttons */}
+              <View style={styles.modalActions}>
                 <Button
-                  title="Close"
-                  variant="ghost"
-                  onPress={() => setInspectTx(null)}
+                  title="Delete"
+                  variant="danger"
+                  size="md"
+                  icon="trash-outline"
+                  onPress={() => handleDelete(inspectTx)}
+                  style={{ flex: 1, marginRight: 8 }}
+                />
+                <Button
+                  title="Edit"
+                  variant="secondary"
+                  size="md"
+                  icon="create-outline"
+                  onPress={() => handleEdit(inspectTx)}
+                  style={{ flex: 1 }}
                 />
               </View>
             </View>
@@ -599,15 +630,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   searchWrapper: {
-    paddingHorizontal: 20,
-    marginTop: 6,
+    paddingHorizontal: 18,
     marginBottom: 8,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    height: 42,
+    height: 38,
     borderWidth: 1,
   },
   searchIcon: {
@@ -615,88 +645,90 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    height: '100%',
+    fontSize: 13,
   },
   filtersWrapper: {
+    paddingHorizontal: 18,
     marginBottom: 10,
   },
-  filterScroll: {
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    gap: 8,
-  },
-  filterChip: {
+  segmentedBar: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
+    padding: 2,
+    marginBottom: 8,
+  },
+  segmentButton: {
+    flex: 1,
     paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentButtonActive: {
     borderWidth: 1,
   },
-  filterChipText: {
+  segmentText: {
     fontSize: 12,
   },
-  filterDivider: {
-    width: 1,
-    height: 20,
-    marginHorizontal: 4,
+  categoryScroll: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderWidth: 1,
+  },
+  categoryChipText: {
+    fontSize: 11,
   },
   summaryStrip: {
     flexDirection: 'row',
-    marginHorizontal: 20,
-    marginBottom: 10,
-    borderRadius: 12,
+    justifyContent: 'space-between',
+    marginHorizontal: 18,
     paddingVertical: 10,
+    paddingHorizontal: 14,
     borderWidth: 1,
+    borderRadius: 10,
+    marginBottom: 10,
   },
   summaryItem: {
     flex: 1,
     alignItems: 'center',
   },
-  stripDivider: {
-    width: 1,
-    height: '80%',
-  },
   summaryLabel: {
     fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.8,
+    fontWeight: '600',
+    letterSpacing: 0.6,
+    marginBottom: 2,
   },
   summaryValue: {
-    fontSize: 14,
-    fontWeight: '800',
-    marginTop: 2,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  stripDivider: {
+    width: 1,
+    height: 20,
+    alignSelf: 'center',
   },
   listContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingBottom: 110,
   },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    marginTop: 14,
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    marginTop: 6,
-    textAlign: 'center',
-  },
-  txCard: {
-    marginVertical: 4,
-    padding: 12,
+  transactionsCard: {
+    paddingVertical: 0,
+    paddingHorizontal: 14,
   },
   txRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 12,
   },
   txIconContainer: {
-    width: 44,
-    height: 44,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -705,105 +737,125 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   txTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     letterSpacing: -0.2,
   },
   txMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 3,
+    marginTop: 2,
   },
   txCategory: {
     fontSize: 12,
-    fontWeight: '500',
   },
   txAmountContainer: {
     alignItems: 'flex-end',
+    marginLeft: 8,
   },
   txAmount: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   txDate: {
     fontSize: 11,
-    fontWeight: '500',
-    marginTop: 3,
+    marginTop: 2,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginTop: 12,
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: 'center',
+    paddingHorizontal: 24,
   },
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 20,
   },
   sortModalCard: {
     width: '100%',
-    padding: 20,
+    maxWidth: 320,
+    padding: 16,
     borderWidth: 1,
   },
   sortModalTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    marginBottom: 14,
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 12,
   },
   sortOptionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
   },
   sortOptionText: {
-    fontSize: 14,
+    fontSize: 13,
   },
   modalCard: {
     width: '100%',
-    padding: 22,
+    maxWidth: 380,
+    padding: 18,
     borderWidth: 1,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: -0.3,
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalAmountBanner: {
     alignItems: 'center',
-    paddingVertical: 16,
-    marginBottom: 16,
+    paddingVertical: 14,
+    marginBottom: 14,
+    borderWidth: 1,
   },
   modalAmount: {
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+    fontSize: 26,
+    fontWeight: '700',
+    letterSpacing: -0.4,
   },
   modalTypeLabel: {
     fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginTop: 4,
+    fontWeight: '500',
+    marginTop: 3,
+    letterSpacing: 0.5,
   },
   modalRows: {
-    gap: 12,
+    marginBottom: 16,
   },
   modalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 8,
+    paddingVertical: 9,
     borderBottomWidth: 1,
   },
   modalRowLabel: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 12,
   },
   modalRowValue: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
+  },
+  modalActions: {
+    flexDirection: 'row',
   },
 });

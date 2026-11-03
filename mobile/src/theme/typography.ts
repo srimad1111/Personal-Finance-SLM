@@ -7,14 +7,15 @@ export const typography = {
     mono: 'Courier',
   },
   fontSize: {
+    xxs: 10,
     xs: 11,
     sm: 13,
     base: 15,
-    md: 17,
-    lg: 20,
-    xl: 24,
-    xxl: 30,
-    display: 36,
+    md: 16,
+    lg: 18,
+    xl: 22,
+    xxl: 28,
+    display: 34,
   },
   fontWeight: {
     regular: '400' as const,
@@ -28,5 +29,12 @@ export const typography = {
     normal: 1.35,
     relaxed: 1.5,
   },
+  letterSpacing: {
+    tighter: -0.8,
+    tight: -0.4,
+    normal: 0,
+    wide: 0.4,
+    wider: 0.8,
+    widest: 1.2,
+  },
 };
-

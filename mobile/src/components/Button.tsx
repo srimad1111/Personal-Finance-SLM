@@ -35,31 +35,53 @@ export const Button: React.FC<ButtonProps> = ({
   style,
   textStyle,
 }) => {
-  const { colors, borderRadius } = useTheme();
+  const { colors, borderRadius, isDark } = useTheme();
 
   const getVariantStyles = (): { bg: string; text: string; border?: string } => {
     switch (variant) {
       case 'primary':
-        return { bg: colors.accent, text: '#FFFFFF' };
+        return {
+          bg: isDark ? '#FFFFFF' : '#0F172A',
+          text: isDark ? '#090D16' : '#FFFFFF',
+        };
       case 'secondary':
-        return { bg: colors.surfaceElevated, text: colors.textPrimary, border: colors.border };
+        return {
+          bg: colors.surfaceElevated,
+          text: colors.textPrimary,
+          border: colors.border,
+        };
       case 'outline':
-        return { bg: 'transparent', text: colors.accent, border: colors.accent };
+        return {
+          bg: 'transparent',
+          text: colors.textPrimary,
+          border: colors.border,
+        };
       case 'danger':
-        return { bg: colors.danger, text: '#FFFFFF' };
+        return {
+          bg: colors.danger,
+          text: '#FFFFFF',
+        };
       case 'ghost':
-        return { bg: 'transparent', text: colors.textSecondary };
+        return {
+          bg: 'transparent',
+          text: colors.textSecondary,
+        };
     }
   };
 
-  const getSizeStyles = (): { paddingVertical: number; paddingHorizontal: number; fontSize: number } => {
+  const getSizeStyles = (): {
+    paddingVertical: number;
+    paddingHorizontal: number;
+    fontSize: number;
+    iconSize: number;
+  } => {
     switch (size) {
       case 'sm':
-        return { paddingVertical: 8, paddingHorizontal: 12, fontSize: 13 };
+        return { paddingVertical: 7, paddingHorizontal: 12, fontSize: 12, iconSize: 14 };
       case 'md':
-        return { paddingVertical: 14, paddingHorizontal: 18, fontSize: 15 };
+        return { paddingVertical: 11, paddingHorizontal: 16, fontSize: 14, iconSize: 17 };
       case 'lg':
-        return { paddingVertical: 18, paddingHorizontal: 24, fontSize: 17 };
+        return { paddingVertical: 14, paddingHorizontal: 20, fontSize: 15, iconSize: 19 };
     }
   };
 
@@ -68,7 +90,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <TouchableOpacity
-      activeOpacity={0.8}
+      activeOpacity={0.75}
       onPress={onPress}
       disabled={disabled || loading}
       style={[
@@ -80,7 +102,7 @@ export const Button: React.FC<ButtonProps> = ({
           borderRadius: borderRadius.md,
           paddingVertical: sStyle.paddingVertical,
           paddingHorizontal: sStyle.paddingHorizontal,
-          opacity: disabled ? 0.6 : 1,
+          opacity: disabled ? 0.5 : 1,
         },
         style,
       ]}
@@ -92,7 +114,7 @@ export const Button: React.FC<ButtonProps> = ({
           {icon && (
             <Ionicons
               name={icon}
-              size={sStyle.fontSize + 2}
+              size={sStyle.iconSize}
               color={disabled ? colors.textMuted : vStyle.text}
               style={styles.icon}
             />
@@ -127,11 +149,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   icon: {
-    marginRight: 8,
+    marginRight: 6,
   },
   text: {
     fontWeight: '600',
     letterSpacing: -0.2,
   },
 });
-

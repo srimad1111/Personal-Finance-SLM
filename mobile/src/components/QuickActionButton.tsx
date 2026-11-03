@@ -23,21 +23,27 @@ export const QuickActionButton: React.FC<QuickActionButtonProps> = ({
     <TouchableOpacity
       activeOpacity={0.7}
       onPress={onPress}
-      style={styles.container}
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+          borderRadius: borderRadius.md,
+        },
+      ]}
     >
       <View
         style={[
-          styles.iconCircle,
+          styles.iconBox,
           {
-            backgroundColor: colors.surfaceElevated,
-            borderColor: colors.border,
-            borderRadius: borderRadius.xl,
+            backgroundColor: `${tint}14`,
+            borderRadius: borderRadius.sm,
           },
         ]}
       >
-        <Ionicons name={icon} size={22} color={tint} />
+        <Ionicons name={icon} size={17} color={tint} />
       </View>
-      <Text style={[styles.label, { color: colors.textSecondary }]} numberOfLines={1}>
+      <Text style={[styles.label, { color: colors.textPrimary }]} numberOfLines={1}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -46,21 +52,25 @@ export const QuickActionButton: React.FC<QuickActionButtonProps> = ({
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
-    width: 72,
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    marginHorizontal: 3,
   },
-  iconCircle: {
-    width: 52,
-    height: 52,
+  iconBox: {
+    width: 26,
+    height: 26,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    marginBottom: 6,
+    marginRight: 6,
   },
   label: {
     fontSize: 12,
     fontWeight: '600',
-    textAlign: 'center',
+    letterSpacing: -0.2,
   },
 });
-

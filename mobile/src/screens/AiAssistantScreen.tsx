@@ -20,13 +20,13 @@ import { ChatMessage } from '../types';
 import { formatINR } from '../utils/currency';
 
 export const AiAssistantScreen: React.FC = () => {
-  const { colors, borderRadius } = useTheme();
+  const { colors, borderRadius, isDark } = useTheme();
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'msg_01',
       sender: 'assistant',
-      text: "Namaste! I am your offline Financial Assistant. All arithmetic calculations and financial summaries are computed deterministically in Indian Rupees (₹) from your local SQLite database without cloud APIs.\n\nAsk me about your total balance, UPI expenses, monthly budgets, or category breakdowns!",
+      text: "Namaste! I am your offline Financial Copilot. All arithmetic calculations and financial summaries are computed deterministically in Indian Rupees (₹) from your local SQLite database without cloud APIs.\n\nAsk me about your total balance, UPI expenses, monthly budgets, or category breakdowns!",
       timestamp: Date.now() - 3600000,
     },
   ]);
@@ -36,7 +36,6 @@ export const AiAssistantScreen: React.FC = () => {
   const scrollViewRef = useRef<ScrollView>(null);
   const typingDotAnim = useRef(new Animated.Value(0)).current;
 
-  // Typing dots animation
   useEffect(() => {
     if (isTyping) {
       Animated.loop(
@@ -73,7 +72,6 @@ export const AiAssistantScreen: React.FC = () => {
     scrollToBottom();
 
     try {
-      // Deterministic calculations directly from SQLite
       const summary = await getFinancialSummary();
       const categoryTotals = await getCategoryWiseTotals('expense');
       const topExpense = categoryTotals.length > 0 ? categoryTotals[0] : null;
@@ -98,95 +96,81 @@ export const AiAssistantScreen: React.FC = () => {
           responseText = `Your largest expense category in SQLite is ${topExpense.categoryName} with a total of ${formatINR(topExpense.totalAmount)} (${topExpense.percentage.toFixed(1)}% of all expenses across ${topExpense.transactionCount} transactions).`;
           insight = {
             type: 'breakdown',
-            title: 'Top Outflow Category',
+            title: `Top Outflow Category: ${topExpense.categoryName}`,
             value: formatINR(topExpense.totalAmount),
-            details: `${topExpense.categoryName} (${topExpense.percentage.toFixed(1)}% of total)`,
+            details: `${topExpense.percentage.toFixed(1)}% of cumulative expenses`,
           };
         } else {
-          responseText = 'You have no recorded expense transactions in SQLite yet.';
+          responseText = 'You have not recorded any expense transactions yet in your local database.';
         }
-      } else {
-        responseText = `Local SQLite Deterministic Summary:\n\n• Total Income: +${formatINR(summary.totalIncome)}\n• Total Outflows: -${formatINR(summary.totalExpenses)}\n• Net Balance: ${formatINR(summary.netBalance)}\n• Transactions Logged: ${summary.transactionCount}\n\nAll math is calculated deterministically with zero cloud transmission.`;
+      } else if (lower.includes('summary') || lower.includes('how much') || lower.includes('spend')) {
+        responseText = `Here is your current financial summary calculated directly from your offline SQLite ledger:\n\n• Total Income: ${formatINR(summary.totalIncome)}\n• Total Expenses: ${formatINR(summary.totalExpenses)}\n• Net Balance: ${formatINR(summary.netBalance)}\n\nCalculated across ${summary.transactionCount} verified records.`;
         insight = {
           type: 'metric',
-          title: 'Deterministic Balance',
+          title: 'Ledger Summary (SQLite)',
+          value: `${formatINR(summary.netBalance)} Net`,
+          details: `Inflow: ${formatINR(summary.totalIncome)} | Outflow: ${formatINR(summary.totalExpenses)}`,
+        };
+      } else if (lower.includes('upi') || lower.includes('payment') || lower.includes('phonepe') || lower.includes('gpay')) {
+        responseText = `In your localized Indian financial database, all UPI and merchant transactions (Google Pay, PhonePe, Paytm, CRED) are categorized deterministically and stored offline. Current net available liquidity is ${formatINR(summary.netBalance)}.`;
+        insight = {
+          type: 'metric',
+          title: 'UPI & Payment Intelligence',
+          value: `${formatINR(summary.netBalance)} Liquid`,
+          details: 'Offline transaction categorization ready',
+        };
+      } else {
+        responseText = `Grounded local financial insight:\n\nYour current net balance in SQLite is ${formatINR(summary.netBalance)} with total recorded expenses of ${formatINR(summary.totalExpenses)}.\n\nAll calculations are 100% offline and deterministic.`;
+        insight = {
+          type: 'metric',
+          title: 'Offline Financial State',
           value: formatINR(summary.netBalance),
-          details: `Computed from ${summary.transactionCount} SQLite records`,
+          details: `Processed across ${summary.transactionCount} records`,
         };
       }
 
-      const assistantMsg: ChatMessage = {
-        id: `msg_asst_${Date.now()}`,
-        sender: 'assistant',
-        text: responseText,
-        timestamp: Date.now(),
-        financialInsight: insight,
-      };
-
-      setIsTyping(false);
-      setMessages((prev) => [...prev, assistantMsg]);
-      scrollToBottom();
+      setTimeout(() => {
+        const assistantMsg: ChatMessage = {
+          id: `msg_${Date.now() + 1}`,
+          sender: 'assistant',
+          text: responseText,
+          timestamp: Date.now(),
+          financialInsight: insight,
+        };
+        setMessages((prev) => [...prev, assistantMsg]);
+        setIsTyping(false);
+        scrollToBottom();
+      }, 500);
     } catch (err) {
-      console.error('[AI_ASSISTANT_QUERY_ERROR]', err);
+      console.error('[AI_CHAT_ERROR]', err);
       setIsTyping(false);
     }
   };
 
-  const handleClearConversation = () => {
-    setMessages([
-      {
-        id: `msg_welcome_${Date.now()}`,
-        sender: 'assistant',
-        text: "Conversation cleared. Memory reset to your active SQLite local ledger.\n\nWhat would you like to review about your finances?",
-        timestamp: Date.now(),
-      },
-    ]);
-  };
-
   const suggestedQuestions = [
-    'What is my total net balance?',
-    'What is my largest expense category?',
-    'Can I afford a discretionary purchase?',
+    'How much did I spend this month?',
+    'Can I afford a ₹3,000 purchase?',
+    'What is my highest expense category?',
+    'Summarize my net balance in INR',
   ];
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <Header
-        title="Finance Assistant"
-        subtitle="Deterministic Local Ledger Engine"
-        rightAction={
-          <TouchableOpacity
-            style={[
-              styles.clearButton,
-              {
-                backgroundColor: colors.surfaceElevated,
-                borderColor: colors.border,
-                borderRadius: borderRadius.md,
-              },
-            ]}
-            onPress={handleClearConversation}
-            accessibilityLabel="Clear Conversation"
-          >
-            <Ionicons name="trash-outline" size={17} color={colors.textMuted} />
-          </TouchableOpacity>
-        }
+        title="Copilot"
+        subtitle="Offline Financial Intelligence · Local SQLite"
+        rightAction={<OfflineAiBadge />}
       />
-
-      {/* Offline Status Badge Banner */}
-      <View style={styles.statusBarWrapper}>
-        <OfflineAiBadge modelName="Offline Deterministic Engine (SQLite)" />
-      </View>
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
+        style={styles.keyboardContainer}
       >
-        {/* Messages List */}
+        {/* Messages Scroll View */}
         <ScrollView
           ref={scrollViewRef}
-          contentContainerStyle={styles.messagesScroll}
+          contentContainerStyle={styles.messagesContent}
           showsVerticalScrollIndicator={false}
-          onContentSizeChange={scrollToBottom}
         >
           {messages.map((msg) => {
             const isUser = msg.sender === 'user';
@@ -202,15 +186,15 @@ export const AiAssistantScreen: React.FC = () => {
                 {!isUser && (
                   <View
                     style={[
-                      styles.avatarCircle,
+                      styles.avatarBox,
                       {
-                        backgroundColor: colors.aiAccentLight,
-                        borderColor: colors.aiAccent,
-                        borderRadius: borderRadius.full,
+                        backgroundColor: colors.surfaceElevated,
+                        borderColor: colors.border,
+                        borderRadius: borderRadius.sm,
                       },
                     ]}
                   >
-                    <Ionicons name="calculator-outline" size={15} color={colors.aiAccentGlow} />
+                    <Ionicons name="sparkles" size={13} color={colors.aiAccent} />
                   </View>
                 )}
 
@@ -219,27 +203,27 @@ export const AiAssistantScreen: React.FC = () => {
                     styles.messageBubble,
                     isUser
                       ? {
-                          backgroundColor: colors.accent,
-                          borderBottomRightRadius: 4,
-                          borderTopLeftRadius: borderRadius.lg,
-                          borderTopRightRadius: borderRadius.lg,
-                          borderBottomLeftRadius: borderRadius.lg,
+                          backgroundColor: isDark ? '#FFFFFF' : '#0F172A',
+                          borderRadius: borderRadius.md,
                         }
                       : {
-                          backgroundColor: colors.card,
+                          backgroundColor: colors.surface,
                           borderColor: colors.border,
+                          borderRadius: borderRadius.md,
                           borderWidth: 1,
-                          borderBottomLeftRadius: 4,
-                          borderTopLeftRadius: borderRadius.lg,
-                          borderTopRightRadius: borderRadius.lg,
-                          borderBottomRightRadius: borderRadius.lg,
                         },
                   ]}
                 >
                   <Text
                     style={[
                       styles.messageText,
-                      { color: isUser ? '#FFFFFF' : colors.textPrimary },
+                      {
+                        color: isUser
+                          ? isDark
+                            ? '#090D16'
+                            : '#FFFFFF'
+                          : colors.textPrimary,
+                      },
                     ]}
                   >
                     {msg.text}
@@ -253,13 +237,13 @@ export const AiAssistantScreen: React.FC = () => {
                         {
                           backgroundColor: colors.surfaceElevated,
                           borderColor: colors.borderSubtle,
-                          borderRadius: borderRadius.md,
+                          borderRadius: borderRadius.sm,
                         },
                       ]}
                     >
                       <View style={styles.insightHeader}>
-                        <Ionicons name="analytics" size={13} color={colors.aiAccentGlow} />
-                        <Text style={[styles.insightTitle, { color: colors.aiAccentGlow }]}>
+                        <Ionicons name="bar-chart-outline" size={12} color={colors.aiAccent} />
+                        <Text style={[styles.insightTitle, { color: colors.aiAccent }]}>
                           {msg.financialInsight.title}
                         </Text>
                       </View>
@@ -285,28 +269,28 @@ export const AiAssistantScreen: React.FC = () => {
             <View style={[styles.messageRow, styles.assistantRow]}>
               <View
                 style={[
-                  styles.avatarCircle,
+                  styles.avatarBox,
                   {
-                    backgroundColor: colors.aiAccentLight,
-                    borderColor: colors.aiAccent,
-                    borderRadius: borderRadius.full,
+                    backgroundColor: colors.surfaceElevated,
+                    borderColor: colors.border,
+                    borderRadius: borderRadius.sm,
                   },
                 ]}
               >
-                <Ionicons name="calculator-outline" size={14} color={colors.aiAccentGlow} />
+                <Ionicons name="sparkles" size={13} color={colors.aiAccent} />
               </View>
               <View
                 style={[
                   styles.typingBubble,
                   {
-                    backgroundColor: colors.card,
+                    backgroundColor: colors.surface,
                     borderColor: colors.border,
-                    borderRadius: borderRadius.lg,
+                    borderRadius: borderRadius.md,
                   },
                 ]}
               >
                 <Text style={[styles.typingText, { color: colors.textMuted }]}>
-                  Evaluating local SQLite ledger...
+                  Computing from SQLite ledger...
                 </Text>
               </View>
             </View>
@@ -315,21 +299,27 @@ export const AiAssistantScreen: React.FC = () => {
 
         {/* Suggested Quick Prompt Chips */}
         <View style={styles.suggestedWrapper}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestedScroll}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.suggestedScroll}
+          >
             {suggestedQuestions.map((q, idx) => (
               <TouchableOpacity
                 key={idx}
                 style={[
                   styles.suggestedChip,
                   {
-                    backgroundColor: colors.surfaceElevated,
+                    backgroundColor: colors.surface,
                     borderColor: colors.border,
-                    borderRadius: borderRadius.full,
+                    borderRadius: borderRadius.sm,
                   },
                 ]}
                 onPress={() => handleSendMessage(q)}
               >
-                <Text style={[styles.suggestedChipText, { color: colors.textSecondary }]}>{q}</Text>
+                <Text style={[styles.suggestedChipText, { color: colors.textSecondary }]}>
+                  {q}
+                </Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -352,10 +342,10 @@ export const AiAssistantScreen: React.FC = () => {
                 backgroundColor: colors.surfaceElevated,
                 borderColor: colors.border,
                 color: colors.textPrimary,
-                borderRadius: borderRadius.full,
+                borderRadius: borderRadius.md,
               },
             ]}
-            placeholder="Ask about spending, balance, categories..."
+            placeholder="Ask about expenses, budgets, liquidity..."
             placeholderTextColor={colors.textMuted}
             value={inputText}
             onChangeText={setInputText}
@@ -367,17 +357,19 @@ export const AiAssistantScreen: React.FC = () => {
             style={[
               styles.sendButton,
               {
-                backgroundColor: inputText.trim() ? colors.aiAccent : colors.chipBackground,
-                borderRadius: borderRadius.full,
+                backgroundColor: isDark ? '#FFFFFF' : '#0F172A',
+                borderRadius: borderRadius.md,
+                opacity: inputText.trim().length > 0 ? 1 : 0.4,
               },
             ]}
+            disabled={inputText.trim().length === 0}
             onPress={() => handleSendMessage()}
-            disabled={!inputText.trim()}
+            accessibilityLabel="Send message"
           >
             <Ionicons
               name="arrow-up"
-              size={20}
-              color={inputText.trim() ? '#FFFFFF' : colors.textMuted}
+              size={17}
+              color={isDark ? '#090D16' : '#FFFFFF'}
             />
           </TouchableOpacity>
         </View>
@@ -390,80 +382,72 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  clearButton: {
-    width: 36,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
+  keyboardContainer: {
+    flex: 1,
   },
-  statusBarWrapper: {
-    paddingHorizontal: 20,
-    marginBottom: 8,
-  },
-  messagesScroll: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
+  messagesContent: {
+    paddingHorizontal: 18,
+    paddingTop: 10,
     paddingBottom: 20,
   },
   messageRow: {
     flexDirection: 'row',
-    marginVertical: 6,
-    maxWidth: '86%',
+    marginBottom: 12,
+    alignItems: 'flex-start',
   },
   userRow: {
-    alignSelf: 'flex-end',
     justifyContent: 'flex-end',
   },
   assistantRow: {
-    alignSelf: 'flex-start',
-    alignItems: 'flex-end',
+    justifyContent: 'flex-start',
   },
-  avatarCircle: {
+  avatarBox: {
     width: 28,
     height: 28,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
     marginRight: 8,
-    marginBottom: 4,
+    marginTop: 2,
   },
   messageBubble: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    maxWidth: '82%',
+    paddingVertical: 10,
+    paddingHorizontal: 13,
   },
   messageText: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 19,
+    letterSpacing: -0.1,
   },
   insightBox: {
     marginTop: 10,
-    padding: 12,
+    padding: 10,
     borderWidth: 1,
   },
   insightHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 5,
     marginBottom: 4,
   },
   insightTitle: {
     fontSize: 11,
-    fontWeight: '700',
-    marginLeft: 6,
-    letterSpacing: 0.5,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   insightValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    marginVertical: 2,
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    marginBottom: 2,
   },
   insightDetails: {
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 11,
   },
   typingBubble: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     borderWidth: 1,
   },
   typingText: {
@@ -471,39 +455,42 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   suggestedWrapper: {
-    paddingVertical: 6,
+    paddingVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(150, 150, 150, 0.1)',
   },
   suggestedScroll: {
-    paddingHorizontal: 16,
-    gap: 8,
+    paddingHorizontal: 18,
+    gap: 6,
   },
   suggestedChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderWidth: 1,
   },
   suggestedChipText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
     borderTopWidth: 1,
-    gap: 10,
   },
   inputField: {
     flex: 1,
-    height: 44,
-    paddingHorizontal: 16,
-    fontSize: 14,
+    height: 40,
+    paddingHorizontal: 12,
+    fontSize: 13,
     borderWidth: 1,
+    marginRight: 8,
   },
   sendButton: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },

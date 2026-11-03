@@ -7,26 +7,37 @@ interface CardProps {
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
   elevated?: boolean;
+  flat?: boolean;
 }
 
-export const Card: React.FC<CardProps> = ({ children, style, onPress, elevated = false }) => {
+export const Card: React.FC<CardProps> = ({
+  children,
+  style,
+  onPress,
+  elevated = false,
+  flat = false,
+}) => {
   const { colors, borderRadius, shadows } = useTheme();
 
   const containerStyle: StyleProp<ViewStyle> = [
     styles.card,
     {
-      backgroundColor: elevated ? colors.surfaceElevated : colors.card,
-      borderColor: colors.border,
+      backgroundColor: flat
+        ? 'transparent'
+        : elevated
+        ? colors.surfaceElevated
+        : colors.surface,
+      borderColor: flat ? 'transparent' : colors.border,
       borderRadius: borderRadius.lg,
       shadowColor: colors.shadowColor,
     },
-    shadows.card,
+    !flat && shadows.subtle,
     style,
   ];
 
   if (onPress) {
     return (
-      <TouchableOpacity activeOpacity={0.75} onPress={onPress} style={containerStyle}>
+      <TouchableOpacity activeOpacity={0.7} onPress={onPress} style={containerStyle}>
         {children}
       </TouchableOpacity>
     );
@@ -38,7 +49,6 @@ export const Card: React.FC<CardProps> = ({ children, style, onPress, elevated =
 const styles = StyleSheet.create({
   card: {
     padding: 16,
-    marginVertical: 6,
     borderWidth: 1,
   },
 });

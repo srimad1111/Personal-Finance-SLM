@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
 import { CategoryBreakdown } from '../types';
 import { useTheme } from '../theme';
+import { formatINR } from '../utils/currency';
 
 interface ExpenseBreakdownBarProps {
   categories: CategoryBreakdown[];
@@ -10,18 +11,17 @@ interface ExpenseBreakdownBarProps {
 export const ExpenseBreakdownBar: React.FC<ExpenseBreakdownBarProps> = ({ categories }) => {
   const { colors, borderRadius } = useTheme();
 
-  // Top categories to display in the legend
   const displayedCategories = categories.slice(0, 4);
 
   return (
     <View style={styles.container}>
-      {/* Segmented Bar */}
+      {/* Segmented Distribution Strip */}
       <View
         style={[
           styles.barContainer,
           {
             backgroundColor: colors.surfaceElevated,
-            borderRadius: borderRadius.full,
+            borderRadius: borderRadius.sm,
           },
         ]}
       >
@@ -35,10 +35,7 @@ export const ExpenseBreakdownBar: React.FC<ExpenseBreakdownBarProps> = ({ catego
                 {
                   backgroundColor: item.color,
                   width: `${item.percentage}%`,
-                  borderTopLeftRadius: index === 0 ? borderRadius.full : 0,
-                  borderBottomLeftRadius: index === 0 ? borderRadius.full : 0,
-                  borderTopRightRadius: index === categories.length - 1 ? borderRadius.full : 0,
-                  borderBottomRightRadius: index === categories.length - 1 ? borderRadius.full : 0,
+                  marginRight: index < categories.length - 1 ? 1 : 0,
                 },
               ]}
             />
@@ -46,13 +43,19 @@ export const ExpenseBreakdownBar: React.FC<ExpenseBreakdownBarProps> = ({ catego
         })}
       </View>
 
-      {/* Legend */}
+      {/* Grid Legend with Amounts and Percentages */}
       <View style={styles.legendContainer}>
         {displayedCategories.map((item) => (
           <View key={item.category} style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: item.color }]} />
-            <Text style={[styles.legendText, { color: colors.textSecondary }]}>
-              {item.name} <Text style={{ fontWeight: '700', color: colors.textPrimary }}>({item.percentage.toFixed(0)}%)</Text>
+            <Text style={[styles.legendName, { color: colors.textSecondary }]} numberOfLines={1}>
+              {item.name}
+            </Text>
+            <Text style={[styles.legendValue, { color: colors.textPrimary }]}>
+              {formatINR(item.amount)}
+            </Text>
+            <Text style={[styles.legendPercentage, { color: colors.textMuted }]}>
+              {item.percentage.toFixed(0)}%
             </Text>
           </View>
         ))}
@@ -63,10 +66,10 @@ export const ExpenseBreakdownBar: React.FC<ExpenseBreakdownBarProps> = ({ catego
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 6,
+    marginVertical: 4,
   },
   barContainer: {
-    height: 12,
+    height: 7,
     flexDirection: 'row',
     overflow: 'hidden',
     width: '100%',
@@ -77,22 +80,34 @@ const styles = StyleSheet.create({
   legendContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: 12,
-    gap: 12,
+    marginTop: 14,
+    rowGap: 10,
+    columnGap: 14,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    minWidth: '45%',
+    flex: 1,
   },
   legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    marginRight: 7,
+  },
+  legendName: {
+    fontSize: 12,
+    fontWeight: '500',
+    flex: 1,
+  },
+  legendValue: {
+    fontSize: 12,
+    fontWeight: '600',
     marginRight: 6,
   },
-  legendText: {
-    fontSize: 12,
+  legendPercentage: {
+    fontSize: 11,
     fontWeight: '500',
   },
 });
-

@@ -3,42 +3,31 @@ import { StyleSheet, View, ViewStyle, StyleProp } from 'react-native';
 import { useTheme } from '../theme';
 
 interface ProgressBarProps {
-  progress: number; // 0.0 to 1.0 (or >1 for over-budget)
+  progress: number; // 0 to 1
   color?: string;
   height?: number;
   style?: StyleProp<ViewStyle>;
-  autoThresholdColor?: boolean;
 }
 
 export const ProgressBar: React.FC<ProgressBarProps> = ({
   progress,
   color,
-  height = 8,
+  height = 5,
   style,
-  autoThresholdColor = true,
 }) => {
   const { colors, borderRadius } = useTheme();
 
-  // Clamp width for visual bar between 0% and 100%
+  // Clamp progress between 0 and 1
   const clampedProgress = Math.min(Math.max(progress, 0), 1);
-
-  const getBarColor = (): string => {
-    if (color) return color;
-    if (!autoThresholdColor) return colors.accent;
-    if (progress >= 1.0) return colors.danger;
-    if (progress >= 0.8) return colors.warning;
-    return colors.success;
-  };
-
-  const activeColor = getBarColor();
+  const barColor = color || colors.accent;
 
   return (
     <View
       style={[
         styles.track,
         {
-          backgroundColor: colors.surfaceElevated,
           height,
+          backgroundColor: colors.borderSubtle,
           borderRadius: borderRadius.full,
         },
         style,
@@ -48,9 +37,8 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
         style={[
           styles.fill,
           {
-            backgroundColor: activeColor,
             width: `${clampedProgress * 100}%`,
-            height,
+            backgroundColor: barColor,
             borderRadius: borderRadius.full,
           },
         ]}
@@ -65,9 +53,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   fill: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
+    height: '100%',
   },
 });
-
