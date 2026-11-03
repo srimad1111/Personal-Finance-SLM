@@ -142,22 +142,30 @@ export class LlamaServiceError extends Error {
  *
  * [User query]<end_of_turn>
  * <start_of_turn>model
+ * [Model response]<end_of_turn>
+ * <start_of_turn>model
+ *
+ * Note: Gemma does not support `<start_of_turn>system`. System instructions
+ * are prepended to the first user turn.
  */
 export function formatGemma3Chat(
   messages: Gemma3ChatMessage[],
   options: { addGenerationPrompt?: boolean } = { addGenerationPrompt: true }
 ): string {
   let prompt = '';
-  let systemInstruction = '';
+  let pendingSystem = '';
 
   for (const msg of messages) {
     if (msg.role === 'system') {
-      systemInstruction = msg.content.trim();
+      const content = msg.content.trim();
+      if (content) {
+        pendingSystem = pendingSystem ? `${pendingSystem}\n\n${content}` : content;
+      }
     } else if (msg.role === 'user') {
-      prompt += `<start_of_turn>user\n`;
-      if (systemInstruction) {
-        prompt += `${systemInstruction}\n\n`;
-        systemInstruction = ''; // Consume once
+      prompt += '<start_of_turn>user\n';
+      if (pendingSystem) {
+        prompt += `${pendingSystem}\n\n`;
+        pendingSystem = ''; // Prepended once into the first user turn
       }
       prompt += `${msg.content.trim()}<end_of_turn>\n`;
     } else if (msg.role === 'assistant') {
@@ -165,8 +173,13 @@ export function formatGemma3Chat(
     }
   }
 
+  // Handle standalone system prompt if no user message was provided
+  if (pendingSystem && !prompt) {
+    prompt += `<start_of_turn>user\n${pendingSystem}<end_of_turn>\n`;
+  }
+
   if (options.addGenerationPrompt) {
-    prompt += `<start_of_turn>model\n`;
+    prompt += '<start_of_turn>model\n';
   }
 
   return prompt;
@@ -179,7 +192,7 @@ export function formatGemma3Instruction(taskDescription: string, inputPayload: s
   return formatGemma3Chat([
     {
       role: 'user',
-      content: `Task: ${taskDescription.trim()}\n${inputPayload.trim()}`,
+      content: `${taskDescription.trim()}\n\n${inputPayload.trim()}`,
     },
   ]);
 }
@@ -193,7 +206,12 @@ export class LlamaService {
   private currentState: ModelLifecycleState = 'unloaded';
   private currentModelPath: string | null = null;
   private lastError: string | null = null;
+
+  // Concurrency and lifecycle safety trackers
+  private activeGenerationPromise: Promise<string> | null = null;
   private isCancelling = false;
+  private isInitializing = false;
+  private isReleasing = false;
 
   private currentContextParams?: {
     contextSize: number;
@@ -227,10 +245,17 @@ export class LlamaService {
       throw new LlamaServiceError('INVALID_MODEL_PATH', 'A valid non-empty modelPath string must be provided.');
     }
 
-    if (this.currentState === 'loading') {
+    if (this.isInitializing || this.currentState === 'loading') {
       throw new LlamaServiceError(
         'ALREADY_INITIALIZING',
         'Model initialization is already in progress. Wait for it to complete.'
+      );
+    }
+
+    if (this.activeGenerationPromise || this.currentState === 'generating' || this.isCancelling) {
+      throw new LlamaServiceError(
+        'ALREADY_GENERATING',
+        'Cannot initialize model while generation or cancellation is in progress.'
       );
     }
 
@@ -239,86 +264,104 @@ export class LlamaService {
       return;
     }
 
-    // Release existing context if swapping model
-    if (this.activeContext) {
-      await this.releaseModel();
-    }
+    this.isInitializing = true;
 
-    // Verify platform support
-    if (Platform.OS === 'web') {
-      this.currentState = 'error';
-      this.lastError = 'llama.rn native inference is not supported on web.';
-      throw new LlamaServiceError('UNSUPPORTED_PLATFORM', 'llama.rn requires an Android or iOS device runtime.');
-    }
-
-    // Verify model file existence
     try {
-      const fileInfo = await FileSystem.getInfoAsync(modelPath);
-      if (!fileInfo.exists || fileInfo.isDirectory || (fileInfo.size && fileInfo.size < 1024)) {
-        this.currentState = 'error';
-        this.lastError = `Model file does not exist or is invalid at: ${modelPath}`;
-        throw new LlamaServiceError(
-          'MODEL_NOT_FOUND',
-          `GGUF model file was not found or is empty at: ${modelPath}`
-        );
+      // Release existing context if swapping model
+      if (this.activeContext) {
+        await this.releaseModel();
       }
-    } catch (fsErr) {
-      if (fsErr instanceof LlamaServiceError) throw fsErr;
-      this.currentState = 'error';
-      this.lastError = `Filesystem check failed for: ${modelPath}`;
-      throw new LlamaServiceError('MODEL_NOT_FOUND', `Failed to access file path: ${modelPath}`, fsErr);
-    }
 
-    // Configure params
-    const contextSize = options.contextSize ?? 2048;
-    const threadCount = options.threadCount ?? 4;
-    const useMmap = options.useMmap ?? true;
-    const batchSize = options.batchSize ?? 512;
+      // Verify platform support
+      if (Platform.OS === 'web') {
+        this.currentState = 'error';
+        this.lastError = 'llama.rn native inference is not supported on web.';
+        throw new LlamaServiceError('UNSUPPORTED_PLATFORM', 'llama.rn requires an Android or iOS device runtime.');
+      }
 
-    this.currentState = 'loading';
-    this.lastError = null;
+      // Verify model file existence
+      try {
+        const fileInfo = await FileSystem.getInfoAsync(modelPath);
+        if (!fileInfo.exists || fileInfo.isDirectory || (fileInfo.size && fileInfo.size < 1024)) {
+          this.currentState = 'error';
+          this.lastError = `Model file does not exist or is invalid at: ${modelPath}`;
+          throw new LlamaServiceError(
+            'MODEL_NOT_FOUND',
+            `GGUF model file was not found or is empty at: ${modelPath}`
+          );
+        }
+      } catch (fsErr) {
+        if (fsErr instanceof LlamaServiceError) throw fsErr;
+        this.currentState = 'error';
+        this.lastError = `Filesystem check failed for: ${modelPath}`;
+        throw new LlamaServiceError('MODEL_NOT_FOUND', `Failed to access file path: ${modelPath}`, fsErr);
+      }
 
-    try {
-      this.activeContext = await initLlama(
-        {
-          model: modelPath,
-          is_model_asset: false,
-          n_ctx: contextSize,
-          n_threads: threadCount,
-          n_batch: batchSize,
-          use_mmap: useMmap,
-          n_gpu_layers: 0, // Conservative CPU baseline
-        },
-        (progress) => {
-          if (options.onProgress) {
-            options.onProgress(progress);
+      // Configure params
+      const contextSize = options.contextSize ?? 2048;
+      const threadCount = options.threadCount ?? 4;
+      const useMmap = options.useMmap ?? true;
+      const batchSize = options.batchSize ?? 512;
+
+      this.currentState = 'loading';
+      this.lastError = null;
+
+      try {
+        this.activeContext = await initLlama(
+          {
+            model: modelPath,
+            is_model_asset: false,
+            n_ctx: contextSize,
+            n_threads: threadCount,
+            n_batch: batchSize,
+            use_mmap: useMmap,
+            n_gpu_layers: 0, // Conservative CPU baseline
+          },
+          (progress) => {
+            if (options.onProgress) {
+              options.onProgress(progress);
+            }
+          }
+        );
+
+        this.currentState = 'ready';
+        this.currentModelPath = modelPath;
+        this.currentContextParams = {
+          contextSize,
+          threadCount,
+          useMmap,
+        };
+      } catch (initErr) {
+        this.currentState = 'error';
+        if (this.activeContext) {
+          try {
+            await this.activeContext.release();
+          } catch {
+            // Ignore native release error on failed initialization
           }
         }
-      );
-
-      this.currentState = 'ready';
-      this.currentModelPath = modelPath;
-      this.currentContextParams = {
-        contextSize,
-        threadCount,
-        useMmap,
-      };
-    } catch (initErr) {
-      this.currentState = 'error';
-      this.activeContext = null;
-      this.lastError = initErr instanceof Error ? initErr.message : String(initErr);
-      throw new LlamaServiceError(
-        'INITIALIZATION_FAILED',
-        `llama.rn failed to initialize model context: ${this.lastError}`,
-        initErr
-      );
+        this.activeContext = null;
+        this.lastError = initErr instanceof Error ? initErr.message : String(initErr);
+        throw new LlamaServiceError(
+          'INITIALIZATION_FAILED',
+          `llama.rn failed to initialize model context: ${this.lastError}`,
+          initErr
+        );
+      }
+    } finally {
+      this.isInitializing = false;
     }
   }
 
   /**
    * Generates a text response from the model.
    *
-   * @param promptOrMessages Formatted prompt string or OpenAI-compatible messages array.
+   * Concurrency & Double-formatting guarantees:
+   * - If promptOrMessages is a string, it is passed directly as `prompt` without re-formatting.
+   * - If promptOrMessages is an array of messages, llama.rn applies the GGUF model's embedded Jinja chat template.
+   * - Only one generation can run at a time; concurrent calls reject with ALREADY_GENERATING.
+   *
+   * @param promptOrMessages Pre-formatted prompt string or OpenAI-compatible messages array.
    * @param callbacks Optional callbacks for token streaming and completion.
    * @param options Completion options (maxTokens, temperature, stopSequences).
    * @returns The complete generated text.
@@ -328,10 +371,10 @@ export class LlamaService {
     callbacks?: GenerateCallbacks,
     options?: GenerateOptions
   ): Promise<string> {
-    if (this.currentState === 'generating') {
+    if (this.activeGenerationPromise || this.currentState === 'generating' || this.isCancelling) {
       throw new LlamaServiceError(
         'ALREADY_GENERATING',
-        'Model is already generating a response. Wait for it to finish or call cancelGeneration().'
+        'Model is already generating a response or cancelling. Wait for it to settle.'
       );
     }
 
@@ -342,126 +385,164 @@ export class LlamaService {
       );
     }
 
-    this.currentState = 'generating';
-    this.isCancelling = false;
-    let accumulatedText = '';
+    const generationTask = (async (): Promise<string> => {
+      this.currentState = 'generating';
+      this.isCancelling = false;
+      let accumulatedText = '';
 
-    const maxTokens = options?.maxTokens ?? 256;
-    const temperature = options?.temperature ?? 0.1;
-    const topP = options?.topP ?? 0.95;
-    const stopSequences = options?.stopSequences ?? ['<end_of_turn>', '</s>', '<eos>'];
+      const maxTokens = options?.maxTokens ?? 256;
+      const temperature = options?.temperature ?? 0.1;
+      const topP = options?.topP ?? 0.95;
+      // Gemma 3 stops: <end_of_turn> (canonical turn end), <eos> (end of sequence), <start_of_turn> (safety guard against runaway multi-turn generation)
+      const stopSequences = options?.stopSequences ?? ['<end_of_turn>', '<eos>', '<start_of_turn>'];
 
-    try {
-      let completionResult: NativeCompletionResult;
+      try {
+        let completionResult: NativeCompletionResult;
 
-      if (typeof promptOrMessages === 'string') {
-        completionResult = await this.activeContext.completion(
-          {
-            prompt: promptOrMessages,
-            n_predict: maxTokens,
-            temperature,
-            top_p: topP,
-            stop: stopSequences,
-          },
-          (data: TokenData) => {
-            if (this.isCancelling) return;
-            const newChunk = data.token || '';
+        const onTokenCallback = (data: TokenData) => {
+          if (this.isCancelling) return;
+          const newChunk = data.token ?? '';
+          if (!newChunk && !data.accumulated_text) return;
+
+          if (data.accumulated_text !== undefined) {
+            accumulatedText = data.accumulated_text;
+          } else {
             accumulatedText += newChunk;
-            if (callbacks?.onToken) {
-              callbacks.onToken(newChunk, accumulatedText);
-            }
           }
-        );
-      } else {
-        // Native model-provided chat template formatting via messages array
-        completionResult = await this.activeContext.completion(
-          {
-            messages: promptOrMessages,
-            n_predict: maxTokens,
-            temperature,
-            top_p: topP,
-            stop: stopSequences,
-          },
-          (data: TokenData) => {
-            if (this.isCancelling) return;
-            const newChunk = data.token || '';
-            accumulatedText += newChunk;
-            if (callbacks?.onToken) {
-              callbacks.onToken(newChunk, accumulatedText);
-            }
+
+          if (callbacks?.onToken && newChunk) {
+            callbacks.onToken(newChunk, accumulatedText);
           }
-        );
-      }
+        };
 
-      if (this.isCancelling) {
-        throw new LlamaServiceError('GENERATION_CANCELLED', 'Inference generation was cancelled by user request.');
-      }
+        if (typeof promptOrMessages === 'string') {
+          completionResult = await this.activeContext!.completion(
+            {
+              prompt: promptOrMessages,
+              n_predict: maxTokens,
+              temperature,
+              top_p: topP,
+              stop: stopSequences,
+            },
+            onTokenCallback
+          );
+        } else {
+          // Native model-provided chat template formatting via messages array
+          completionResult = await this.activeContext!.completion(
+            {
+              messages: promptOrMessages,
+              n_predict: maxTokens,
+              temperature,
+              top_p: topP,
+              stop: stopSequences,
+            },
+            onTokenCallback
+          );
+        }
 
-      const finalOutput = completionResult.text || completionResult.content || accumulatedText;
+        if (this.isCancelling || completionResult.interrupted) {
+          throw new LlamaServiceError('GENERATION_CANCELLED', 'Inference generation was cancelled.');
+        }
 
-      this.currentState = 'ready';
-      if (callbacks?.onComplete) {
-        callbacks.onComplete(finalOutput);
-      }
-      return finalOutput;
-    } catch (genErr) {
-      this.currentState = 'ready'; // Return to ready state so context remains usable
+        // Prefer parsed content, fallback to raw text or accumulated tokens
+        const rawOutput = completionResult.content || completionResult.text || accumulatedText;
+        const finalOutput = (rawOutput || '').trim();
 
-      if (this.isCancelling) {
-        throw new LlamaServiceError('GENERATION_CANCELLED', 'Inference generation was cancelled.');
-      }
+        if (callbacks?.onComplete) {
+          callbacks.onComplete(finalOutput);
+        }
+        return finalOutput;
+      } catch (genErr) {
+        if (
+          this.isCancelling ||
+          (genErr instanceof LlamaServiceError && genErr.code === 'GENERATION_CANCELLED')
+        ) {
+          const cancelErr = new LlamaServiceError('GENERATION_CANCELLED', 'Inference generation was cancelled.');
+          if (callbacks?.onError) {
+            callbacks.onError(cancelErr);
+          }
+          throw cancelErr;
+        }
 
-      const errMsg = genErr instanceof Error ? genErr.message : String(genErr);
-      const serviceErr = new LlamaServiceError('GENERATION_FAILED', `Generation failed: ${errMsg}`, genErr);
-      if (callbacks?.onError) {
-        callbacks.onError(serviceErr);
+        const errMsg = genErr instanceof Error ? genErr.message : String(genErr);
+        const serviceErr = new LlamaServiceError('GENERATION_FAILED', `Generation failed: ${errMsg}`, genErr);
+        if (callbacks?.onError) {
+          callbacks.onError(serviceErr);
+        }
+        throw serviceErr;
+      } finally {
+        this.activeGenerationPromise = null;
+        this.isCancelling = false;
+        if (this.activeContext) {
+          this.currentState = 'ready';
+        } else {
+          this.currentState = 'unloaded';
+        }
       }
-      throw serviceErr;
-    }
+    })();
+
+    this.activeGenerationPromise = generationTask;
+    return generationTask;
   }
 
   /**
-   * Cancels any active generation using the native llama.rn stopCompletion API.
+   * Cancels any active generation using the native llama.rn stopCompletion API
+   * and awaits until the in-flight completion promise has completely settled.
    */
   public async cancelGeneration(): Promise<void> {
-    if (this.currentState !== 'generating' || !this.activeContext) {
+    if (!this.activeGenerationPromise && this.currentState !== 'generating') {
       return;
     }
 
     this.isCancelling = true;
 
-    try {
-      await this.activeContext.stopCompletion();
-    } catch (err) {
-      console.warn('[LlamaService] Error calling stopCompletion():', err);
-    } finally {
-      this.currentState = 'ready';
-      this.isCancelling = false;
+    if (this.activeContext) {
+      try {
+        await this.activeContext.stopCompletion();
+      } catch (err) {
+        console.warn('[LlamaService] Error calling stopCompletion():', err);
+      }
+    }
+
+    if (this.activeGenerationPromise) {
+      try {
+        await this.activeGenerationPromise;
+      } catch {
+        // Expected GENERATION_CANCELLED rejection
+      }
     }
   }
 
   /**
    * Releases native context memory and cleans up JNI resources.
+   * Ensures active generation is fully cancelled and drained before releasing context.
    */
   public async releaseModel(): Promise<void> {
-    if (this.activeContext) {
-      try {
-        if (this.currentState === 'generating') {
-          await this.cancelGeneration();
-        }
-        await this.activeContext.release();
-      } catch (relErr) {
-        console.warn('[LlamaService] Error releasing native context:', relErr);
-      } finally {
-        this.activeContext = null;
-        this.currentState = 'unloaded';
-        this.currentModelPath = null;
-        this.currentContextParams = undefined;
+    if (this.isReleasing) {
+      return;
+    }
+    this.isReleasing = true;
+
+    try {
+      if (this.activeGenerationPromise || this.currentState === 'generating') {
+        await this.cancelGeneration();
       }
-    } else {
+
+      if (this.activeContext) {
+        try {
+          await this.activeContext.release();
+        } catch (relErr) {
+          console.warn('[LlamaService] Error releasing native context:', relErr);
+        }
+      }
+    } finally {
+      this.activeContext = null;
       this.currentState = 'unloaded';
       this.currentModelPath = null;
       this.currentContextParams = undefined;
+      this.activeGenerationPromise = null;
+      this.isCancelling = false;
+      this.isReleasing = false;
     }
   }
 }
