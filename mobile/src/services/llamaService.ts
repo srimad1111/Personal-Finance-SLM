@@ -21,6 +21,12 @@ import {
   RNLlamaOAICompatibleMessage,
 } from 'llama.rn';
 import {
+  importModel as importModelFromStorage,
+  isModelImported,
+  getModelInfo,
+  getModelPath as getStorageModelPath,
+} from './modelStorageService';
+import {
   getFinancialSummary,
   getCategoryWiseTotals,
   getMonthlyTrends,
@@ -202,6 +208,15 @@ export function formatGemma3Instruction(taskDescription: string, inputPayload: s
 // ==============================================================================
 
 export class LlamaService {
+  private static instance: LlamaService | null = null;
+
+  public static getInstance(): LlamaService {
+    if (!LlamaService.instance) {
+      LlamaService.instance = new LlamaService();
+    }
+    return LlamaService.instance;
+  }
+
   private activeContext: LlamaContext | null = null;
   private currentState: ModelLifecycleState = 'unloaded';
   private currentModelPath: string | null = null;
@@ -551,7 +566,7 @@ export class LlamaService {
 // Singleton Export
 // ==============================================================================
 
-export const llamaService = new LlamaService();
+export const llamaService = LlamaService.getInstance();
 
 // ==============================================================================
 // Screen Compatibility Helpers (Preserves existing AiAssistantScreen imports)
@@ -561,24 +576,13 @@ export async function checkModelStatus(): Promise<ModelStatus> {
   const isNativeSupported = Platform.OS === 'android' || Platform.OS === 'ios';
 
   try {
-    const dirInfo = await FileSystem.getInfoAsync(MODEL_DIR);
-    if (!dirInfo.exists) {
-      await FileSystem.makeDirectoryAsync(MODEL_DIR, { intermediates: true });
-    }
-
-    const fileInfo = await FileSystem.getInfoAsync(TARGET_MODEL_PATH);
-    if (fileInfo.exists && !fileInfo.isDirectory) {
-      const bytes = fileInfo.size || 0;
-      const formatted =
-        bytes >= 1024 * 1024 * 1024
-          ? `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
-          : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-
+    const storageInfo = await getModelInfo();
+    if (storageInfo.isImported) {
       return {
         available: true,
-        path: TARGET_MODEL_PATH,
-        sizeBytes: bytes,
-        sizeFormatted: formatted,
+        path: storageInfo.path,
+        sizeBytes: storageInfo.sizeBytes,
+        sizeFormatted: storageInfo.sizeFormatted,
         isNativeSupported,
       };
     }
@@ -588,7 +592,7 @@ export async function checkModelStatus(): Promise<ModelStatus> {
 
   return {
     available: false,
-    path: TARGET_MODEL_PATH,
+    path: getStorageModelPath(),
     isNativeSupported,
   };
 }
@@ -597,22 +601,11 @@ export async function importModelFromUri(
   sourceUri: string,
   onProgress?: (progress: number) => void
 ): Promise<boolean> {
-  const dirInfo = await FileSystem.getInfoAsync(MODEL_DIR);
-  if (!dirInfo.exists) {
-    await FileSystem.makeDirectoryAsync(MODEL_DIR, { intermediates: true });
-  }
-
-  if (onProgress) onProgress(0.1);
-
-  await FileSystem.copyAsync({
-    from: sourceUri,
-    to: TARGET_MODEL_PATH,
+  const result = await importModelFromStorage(sourceUri, {
+    allowOverwrite: true,
+    onProgress,
   });
-
-  if (onProgress) onProgress(1.0);
-
-  const verified = await checkModelStatus();
-  return verified.available;
+  return result.success;
 }
 
 export async function runOfflineQueryInference(
