@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,14 +10,21 @@ import {
   KeyboardAvoidingView,
   Platform,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import { Header } from '../components/Header';
 import { OfflineAiBadge } from '../components/OfflineAiBadge';
 import { useTheme } from '../theme';
-import { getFinancialSummary, getCategoryWiseTotals } from '../database';
 import { ChatMessage } from '../types';
-import { formatINR } from '../utils/currency';
+import {
+  checkModelStatus,
+  importModelFromUri,
+  runOfflineQueryInference,
+  ModelStatus,
+  MODEL_FILENAME,
+} from '../services/llamaService';
 
 export const AiAssistantScreen: React.FC = () => {
   const { colors, borderRadius, isDark } = useTheme();
@@ -26,15 +33,31 @@ export const AiAssistantScreen: React.FC = () => {
     {
       id: 'msg_01',
       sender: 'assistant',
-      text: "Namaste! I am your offline Financial Copilot. All arithmetic calculations and financial summaries are computed deterministically in Indian Rupees (₹) from your local SQLite database without cloud APIs.\n\nAsk me about your total balance, UPI expenses, monthly budgets, or category breakdowns!",
+      text: "Namaste! I am your offline Financial Copilot. All calculations and financial summaries are computed deterministically in Indian Rupees (₹) from your local SQLite database without cloud APIs.\n\nAsk me about your total expenses, balance, category spending, or budgets!",
       timestamp: Date.now() - 3600000,
     },
   ]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [modelStatus, setModelStatus] = useState<ModelStatus | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
 
   const scrollViewRef = useRef<ScrollView>(null);
   const typingDotAnim = useRef(new Animated.Value(0)).current;
+
+  const refreshModelStatus = useCallback(async () => {
+    try {
+      const status = await checkModelStatus();
+      setModelStatus(status);
+    } catch (err) {
+      console.warn('[AI_SCREEN] Error reading model status:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshModelStatus();
+  }, [refreshModelStatus]);
 
   useEffect(() => {
     if (isTyping) {
@@ -55,6 +78,50 @@ export const AiAssistantScreen: React.FC = () => {
     }, 100);
   };
 
+  const handleImportModel = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        setIsImporting(true);
+        setImportProgress(0.2);
+
+        await importModelFromUri(file.uri, (prog) => {
+          setImportProgress(prog);
+        });
+
+        await refreshModelStatus();
+        setIsImporting(false);
+        setImportProgress(0);
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg_import_${Date.now()}`,
+            sender: 'assistant',
+            text: `Successfully imported ${MODEL_FILENAME} into application sandbox! On-device Gemma 3 1B SLM inference is now active.`,
+            timestamp: Date.now(),
+            financialInsight: {
+              type: 'metric',
+              title: 'Model Ready (Offline)',
+              value: 'Gemma 3 1B Active',
+              details: 'Running locally via llama.cpp',
+            },
+          },
+        ]);
+        scrollToBottom();
+      }
+    } catch (err) {
+      console.error('[AI_SCREEN] Error importing model:', err);
+      setIsImporting(false);
+      alert('Failed to import GGUF file. Please ensure the file is accessible.');
+    }
+  };
+
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputText).trim();
     if (!text) return;
@@ -72,75 +139,21 @@ export const AiAssistantScreen: React.FC = () => {
     scrollToBottom();
 
     try {
-      const summary = await getFinancialSummary();
-      const categoryTotals = await getCategoryWiseTotals('expense');
-      const topExpense = categoryTotals.length > 0 ? categoryTotals[0] : null;
-
-      let responseText = '';
-      let insight: ChatMessage['financialInsight'] | undefined = undefined;
-      const lower = text.toLowerCase();
-
-      if (lower.includes('afford') || lower.includes('purchase')) {
-        const canAfford = summary.netBalance > 5000;
-        responseText = canAfford
-          ? `Based on your deterministic SQLite ledger:\n\n• Current Net Balance: ${formatINR(summary.netBalance)}\n• Total Income: ${formatINR(summary.totalIncome)}\n• Total Expenses: ${formatINR(summary.totalExpenses)}\n\nYou have positive liquidity in Indian Rupees (₹) to accommodate minor discretionary purchases.`
-          : `Based on your deterministic SQLite ledger, your current net balance is ${formatINR(summary.netBalance)}. Spending caution is advised as outflows are high.`;
-        insight = {
-          type: 'metric',
-          title: canAfford ? 'Liquidity Verdict: POSITIVE' : 'Liquidity Verdict: CAUTION',
-          value: `${formatINR(summary.netBalance)} Net Balance`,
-          details: `${summary.transactionCount} total transactions evaluated in SQLite`,
-        };
-      } else if (lower.includes('largest') || lower.includes('highest') || lower.includes('category')) {
-        if (topExpense) {
-          responseText = `Your largest expense category in SQLite is ${topExpense.categoryName} with a total of ${formatINR(topExpense.totalAmount)} (${topExpense.percentage.toFixed(1)}% of all expenses across ${topExpense.transactionCount} transactions).`;
-          insight = {
-            type: 'breakdown',
-            title: `Top Outflow Category: ${topExpense.categoryName}`,
-            value: formatINR(topExpense.totalAmount),
-            details: `${topExpense.percentage.toFixed(1)}% of cumulative expenses`,
-          };
-        } else {
-          responseText = 'You have not recorded any expense transactions yet in your local database.';
-        }
-      } else if (lower.includes('summary') || lower.includes('how much') || lower.includes('spend')) {
-        responseText = `Here is your current financial summary calculated directly from your offline SQLite ledger:\n\n• Total Income: ${formatINR(summary.totalIncome)}\n• Total Expenses: ${formatINR(summary.totalExpenses)}\n• Net Balance: ${formatINR(summary.netBalance)}\n\nCalculated across ${summary.transactionCount} verified records.`;
-        insight = {
-          type: 'metric',
-          title: 'Ledger Summary (SQLite)',
-          value: `${formatINR(summary.netBalance)} Net`,
-          details: `Inflow: ${formatINR(summary.totalIncome)} | Outflow: ${formatINR(summary.totalExpenses)}`,
-        };
-      } else if (lower.includes('upi') || lower.includes('payment') || lower.includes('phonepe') || lower.includes('gpay')) {
-        responseText = `In your localized Indian financial database, all UPI and merchant transactions (Google Pay, PhonePe, Paytm, CRED) are categorized deterministically and stored offline. Current net available liquidity is ${formatINR(summary.netBalance)}.`;
-        insight = {
-          type: 'metric',
-          title: 'UPI & Payment Intelligence',
-          value: `${formatINR(summary.netBalance)} Liquid`,
-          details: 'Offline transaction categorization ready',
-        };
-      } else {
-        responseText = `Grounded local financial insight:\n\nYour current net balance in SQLite is ${formatINR(summary.netBalance)} with total recorded expenses of ${formatINR(summary.totalExpenses)}.\n\nAll calculations are 100% offline and deterministic.`;
-        insight = {
-          type: 'metric',
-          title: 'Offline Financial State',
-          value: formatINR(summary.netBalance),
-          details: `Processed across ${summary.transactionCount} records`,
-        };
-      }
+      // Execute offline query understanding via Gemma 3 1B SLM + SQLite
+      const response = await runOfflineQueryInference(text);
 
       setTimeout(() => {
         const assistantMsg: ChatMessage = {
           id: `msg_${Date.now() + 1}`,
           sender: 'assistant',
-          text: responseText,
+          text: response.text,
           timestamp: Date.now(),
-          financialInsight: insight,
+          financialInsight: response.insight,
         };
         setMessages((prev) => [...prev, assistantMsg]);
         setIsTyping(false);
         scrollToBottom();
-      }, 500);
+      }, 400);
     } catch (err) {
       console.error('[AI_CHAT_ERROR]', err);
       setIsTyping(false);
@@ -149,9 +162,9 @@ export const AiAssistantScreen: React.FC = () => {
 
   const suggestedQuestions = [
     'How much did I spend this month?',
-    'Can I afford a ₹3,000 purchase?',
     'What is my highest expense category?',
-    'Summarize my net balance in INR',
+    'Show my monthly budget status',
+    'Summarize my net savings in INR',
   ];
 
   return (
@@ -159,13 +172,79 @@ export const AiAssistantScreen: React.FC = () => {
       <Header
         title="Copilot"
         subtitle="Offline Financial Intelligence · Local SQLite"
-        rightAction={<OfflineAiBadge />}
+        rightAction={
+          <OfflineAiBadge
+            modelName={
+              modelStatus?.available
+                ? `Gemma 3 1B (${modelStatus.sizeFormatted || 'Ready'})`
+                : 'SLM Ready'
+            }
+          />
+        }
       />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardContainer}
       >
+        {/* Model Import Banner (if model is not yet loaded in private sandbox) */}
+        {!modelStatus?.available && (
+          <View
+            style={[
+              styles.modelImportBanner,
+              {
+                backgroundColor: colors.surfaceElevated,
+                borderColor: colors.border,
+                borderRadius: borderRadius.md,
+              },
+            ]}
+          >
+            <View style={styles.bannerIconBox}>
+              <Ionicons name="hardware-chip-outline" size={18} color={colors.aiAccent} />
+            </View>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <Text style={[styles.bannerTitle, { color: colors.textPrimary }]}>
+                Gemma 3 1B Local Model
+              </Text>
+              <Text style={[styles.bannerSub, { color: colors.textMuted }]}>
+                {isImporting
+                  ? `Copying model to app storage (${(importProgress * 100).toFixed(0)}%)...`
+                  : 'Place your Q4_K_M GGUF file in sandbox to run offline llama.cpp inference.'}
+              </Text>
+            </View>
+
+            {isImporting ? (
+              <ActivityIndicator size="small" color={colors.accent} />
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.importButton,
+                  {
+                    backgroundColor: isDark ? '#FFFFFF' : '#0F172A',
+                    borderRadius: borderRadius.sm,
+                  },
+                ]}
+                onPress={handleImportModel}
+              >
+                <Ionicons
+                  name="download-outline"
+                  size={13}
+                  color={isDark ? '#090D16' : '#FFFFFF'}
+                  style={{ marginRight: 4 }}
+                />
+                <Text
+                  style={[
+                    styles.importBtnText,
+                    { color: isDark ? '#090D16' : '#FFFFFF' },
+                  ]}
+                >
+                  Import
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {/* Messages Scroll View */}
         <ScrollView
           ref={scrollViewRef}
@@ -384,6 +463,40 @@ const styles = StyleSheet.create({
   },
   keyboardContainer: {
     flex: 1,
+  },
+  modelImportBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 18,
+    marginTop: 6,
+    marginBottom: 6,
+    padding: 10,
+    borderWidth: 1,
+  },
+  bannerIconBox: {
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  bannerTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  bannerSub: {
+    fontSize: 10,
+    marginTop: 1,
+  },
+  importButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+  },
+  importBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   messagesContent: {
     paddingHorizontal: 18,

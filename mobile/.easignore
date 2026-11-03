@@ -1,0 +1,17 @@
+# Exclude large local GGUF models from EAS cloud upload context
+models/*.gguf
+models/*.bin
+*.gguf
+*.bin
+*.pt
+*.safetensors
+
+# Exclude local build directories and caches
+dist/
+.expo/
+android/
+ios/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
