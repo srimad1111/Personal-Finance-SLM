@@ -19,10 +19,7 @@
         "backgroundColor": "#090D16"
       },
       "package": "com.personalfinance.slm",
-      "permissions": [
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
-      ]
+      "permissions": []
     },
     "web": {
       "bundler": "metro"
@@ -33,7 +30,7 @@
       [
         "llama.rn",
         {
-          "enableOpenCLAndHexagon": true
+          "enableOpenCLAndHexagon": false
         }
       ]
     ]
