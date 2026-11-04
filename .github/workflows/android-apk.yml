@@ -46,7 +46,7 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # 4. Install project dependencies
+      # 4. Install Node dependencies
       - name: Install dependencies
         run: npm ci
 
@@ -58,13 +58,47 @@ jobs:
       - name: Generate Android native project
         run: npx expo prebuild --platform android --no-install
 
-      # 7. Setup Android SDK
+      # 7. Configure Gradle memory
+      - name: Configure Gradle memory
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          gradle_file = Path("android/gradle.properties")
+
+          if not gradle_file.exists():
+              raise SystemExit("ERROR: android/gradle.properties not found")
+
+          content = gradle_file.read_text()
+          lines = content.splitlines()
+
+          settings = {
+              "org.gradle.jvmargs": "-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8",
+              "org.gradle.workers.max": "2",
+              "org.gradle.parallel": "false",
+              "kotlin.daemon.jvmargs": "-Xmx1g"
+          }
+
+          for key, value in settings.items():
+              lines = [
+                  line for line in lines
+                  if not line.strip().startswith(key + "=")
+              ]
+              lines.append(f"{key}={value}")
+
+          gradle_file.write_text("\n".join(lines) + "\n")
+
+          print("Gradle memory configuration:")
+          print(gradle_file.read_text())
+          PY
+
+      # 8. Setup Android SDK
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
         with:
           packages: platform-tools
 
-      # 8. Install required Android SDK components
+      # 9. Install Android SDK components
       - name: Install Android SDK components
         run: |
           sdkmanager --install \
@@ -74,7 +108,7 @@ jobs:
             "ndk;26.1.10909125" \
             "cmake;3.22.1"
 
-      # 9. Verify Android native project
+      # 10. Verify Android native project
       - name: Verify Android project
         working-directory: mobile/android
         run: |
@@ -82,15 +116,22 @@ jobs:
           test -f gradle/wrapper/gradle-wrapper.properties
           chmod +x gradlew
 
-      # 10. Build release APK
+      # 11. Display available build memory
+      - name: Check runner memory
+        run: |
+          free -h
+          java -version
+
+      # 12. Build release APK
       - name: Build release APK
         working-directory: mobile/android
         run: |
           ./gradlew :app:assembleRelease \
             --no-daemon \
+            --max-workers=2 \
             --stacktrace
 
-      # 11. Upload generated APK
+      # 13. Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@v5
         with:
