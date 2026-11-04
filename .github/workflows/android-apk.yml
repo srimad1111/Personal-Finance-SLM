@@ -29,34 +29,42 @@ jobs:
         working-directory: mobile
 
     steps:
+      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      # 2. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: "20"
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Validate Expo configuration
-        run: npx expo config --type public
-
-      - name: Generate Android native project
-        run: npx expo prebuild --platform android --no-install
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v5
+      # 3. Setup Java 17
+      - name: Setup Java
+        uses: actions/setup-java@v5
         with:
-          packages: platform-tools
-          with:
           distribution: temurin
           java-version: "17"
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v5
+      # 4. Install project dependencies
+      - name: Install dependencies
+        run: npm ci
 
+      # 5. Validate Expo configuration
+      - name: Validate Expo configuration
+        run: npx expo config --type public
+
+      # 6. Generate Android native project
+      - name: Generate Android native project
+        run: npx expo prebuild --platform android --no-install
+
+      # 7. Setup Android SDK
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
+
+      # 8. Install required Android SDK components
       - name: Install Android SDK components
         run: |
           sdkmanager --install \
@@ -66,6 +74,7 @@ jobs:
             "ndk;26.1.10909125" \
             "cmake;3.22.1"
 
+      # 9. Verify Android native project
       - name: Verify Android project
         working-directory: mobile/android
         run: |
@@ -73,6 +82,7 @@ jobs:
           test -f gradle/wrapper/gradle-wrapper.properties
           chmod +x gradlew
 
+      # 10. Build release APK
       - name: Build release APK
         working-directory: mobile/android
         run: |
@@ -80,6 +90,7 @@ jobs:
             --no-daemon \
             --stacktrace
 
+      # 11. Upload generated APK
       - name: Upload APK
         uses: actions/upload-artifact@v5
         with:
