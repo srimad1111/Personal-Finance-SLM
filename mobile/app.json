@@ -8,6 +8,7 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
+      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#090D16"
     },
@@ -16,12 +17,14 @@
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#090D16"
       },
       "package": "com.personalfinance.slm",
       "permissions": []
     },
     "web": {
+      "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
     "plugins": [
@@ -33,6 +36,12 @@
           "enableOpenCLAndHexagon": false
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "a257bc0e-6deb-47f5-add6-8cadecf552db"
+      }
+    },
+    "owner": "srimad1111"
   }
 }
