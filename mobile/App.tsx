@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, StyleSheet, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/theme';
@@ -8,6 +8,12 @@ import { ErrorBoundary } from './src/components/ErrorBoundary';
 
 const MainApp: React.FC = () => {
   const { colors, isDark } = useTheme();
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.body.style.backgroundColor = colors.background;
+    }
+  }, [colors.background]);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -24,7 +30,7 @@ const MainApp: React.FC = () => {
 export default function App() {
   return (
     <ErrorBoundary>
-      <SafeAreaProvider>
+      <SafeAreaProvider style={styles.root}>
         <ThemeProvider>
           <MainApp />
         </ThemeProvider>
