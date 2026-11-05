@@ -1,0 +1,141 @@
+
+name: Build Personal Finance SLM Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "mobile/**"
+      - ".github/workflows/android-apk.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-android:
+    name: Build Standalone Android APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      # 1. Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      # 2. Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+
+      # 3. Setup Java 17
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # 4. Install Node dependencies
+      - name: Install dependencies
+        run: npm ci
+
+      # 5. Validate Expo configuration
+      - name: Validate Expo configuration
+        run: npx expo config --type public
+
+      # 6. Generate Android native project
+      - name: Generate Android native project
+        run: npx expo prebuild --platform android --no-install
+
+      # 7. Configure Gradle memory
+      - name: Configure Gradle memory
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          gradle_file = Path("android/gradle.properties")
+
+          if not gradle_file.exists():
+              raise SystemExit("ERROR: android/gradle.properties not found")
+
+          content = gradle_file.read_text()
+          lines = content.splitlines()
+
+          settings = {
+              "org.gradle.jvmargs": "-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8",
+              "org.gradle.workers.max": "2",
+              "org.gradle.parallel": "false",
+              "kotlin.daemon.jvmargs": "-Xmx1g"
+          }
+
+          for key, value in settings.items():
+              lines = [
+                  line for line in lines
+                  if not line.strip().startswith(key + "=")
+              ]
+              lines.append(f"{key}={value}")
+
+          gradle_file.write_text("\n".join(lines) + "\n")
+
+          print("Gradle memory configuration:")
+          print(gradle_file.read_text())
+          PY
+
+      # 8. Setup Android SDK
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
+
+      # 9. Install Android SDK components
+      - name: Install Android SDK components
+        run: |
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "ndk;26.1.10909125" \
+            "cmake;3.22.1"
+
+      # 10. Verify Android native project
+      - name: Verify Android project
+        working-directory: mobile/android
+        run: |
+          test -f gradlew
+          test -f gradle/wrapper/gradle-wrapper.properties
+          chmod +x gradlew
+
+      # 11. Display available build memory
+      - name: Check runner memory
+        run: |
+          free -h
+          java -version
+
+      # 12. Build release APK
+      - name: Build release APK
+        working-directory: mobile/android
+        run: |
+          ./gradlew :app:assembleRelease \
+            --no-daemon \
+            --max-workers=2 \
+            --stacktrace
+
+      # 13. Upload APK
+      - name: Upload APK
+        uses: actions/upload-artifact@v5
+        with:
+          name: personal-finance-slm-android-apk
+          path: mobile/android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 14
