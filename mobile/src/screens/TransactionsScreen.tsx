@@ -4,7 +4,6 @@ import {
   Text,
   View,
   ScrollView,
-  SafeAreaView,
   TextInput,
   TouchableOpacity,
   Modal,
@@ -111,7 +110,7 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
         title="Activity"
         subtitle={`${processedTransactions.length} transactions`}
@@ -617,12 +616,12 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
           </View>
         </Modal>
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
   },
   iconBtn: {
@@ -718,7 +717,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 110,
+    paddingBottom: 28,
   },
   transactionsCard: {
     paddingVertical: 0,

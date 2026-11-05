@@ -4,7 +4,6 @@ import {
   Text,
   View,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
@@ -83,7 +82,7 @@ export const AnalyticsScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
         title="Analytics"
         subtitle="Financial Intelligence · SQLite Ledger"
@@ -305,17 +304,17 @@ export const AnalyticsScreen: React.FC = () => {
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingBottom: 110,
+    paddingBottom: 28,
   },
   timeframeBar: {
     flexDirection: 'row',

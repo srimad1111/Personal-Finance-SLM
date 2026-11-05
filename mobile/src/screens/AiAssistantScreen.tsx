@@ -4,13 +4,13 @@ import {
   Text,
   View,
   ScrollView,
-  SafeAreaView,
   TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
   Animated,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -58,6 +58,20 @@ export const AiAssistantScreen: React.FC = () => {
   useEffect(() => {
     refreshModelStatus();
   }, [refreshModelStatus]);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => {
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, 120);
+      }
+    );
+    return () => {
+      showSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (isTyping) {
@@ -168,7 +182,7 @@ export const AiAssistantScreen: React.FC = () => {
   ];
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
         title="Copilot"
         subtitle="Offline Financial Intelligence · Local SQLite"
@@ -376,93 +390,100 @@ export const AiAssistantScreen: React.FC = () => {
           )}
         </ScrollView>
 
-        {/* Suggested Quick Prompt Chips */}
-        <View style={styles.suggestedWrapper}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.suggestedScroll}
-          >
-            {suggestedQuestions.map((q, idx) => (
-              <TouchableOpacity
-                key={idx}
-                style={[
-                  styles.suggestedChip,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    borderRadius: borderRadius.sm,
-                  },
-                ]}
-                onPress={() => handleSendMessage(q)}
-              >
-                <Text style={[styles.suggestedChipText, { color: colors.textSecondary }]}>
-                  {q}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+        {/* Bottom Composer Region */}
+        <View style={styles.composerWrapper}>
+          {/* Suggested Quick Prompt Chips */}
+          <View style={styles.suggestedWrapper}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.suggestedScroll}
+              keyboardShouldPersistTaps="handled"
+            >
+              {suggestedQuestions.map((q, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={[
+                    styles.suggestedChip,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                      borderRadius: borderRadius.sm,
+                    },
+                  ]}
+                  onPress={() => handleSendMessage(q)}
+                >
+                  <Text style={[styles.suggestedChipText, { color: colors.textSecondary }]}>
+                    {q}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
 
-        {/* Chat Input Bar */}
-        <View
-          style={[
-            styles.inputContainer,
-            {
-              backgroundColor: colors.surface,
-              borderTopColor: colors.border,
-            },
-          ]}
-        >
-          <TextInput
+          {/* Chat Input Bar */}
+          <View
             style={[
-              styles.inputField,
+              styles.inputContainer,
               {
-                backgroundColor: colors.surfaceElevated,
-                borderColor: colors.border,
-                color: colors.textPrimary,
-                borderRadius: borderRadius.md,
+                backgroundColor: colors.surface,
+                borderTopColor: colors.border,
               },
             ]}
-            placeholder="Ask about expenses, budgets, liquidity..."
-            placeholderTextColor={colors.textMuted}
-            value={inputText}
-            onChangeText={setInputText}
-            onSubmitEditing={() => handleSendMessage()}
-            returnKeyType="send"
-          />
-
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              {
-                backgroundColor: isDark ? '#FFFFFF' : '#0F172A',
-                borderRadius: borderRadius.md,
-                opacity: inputText.trim().length > 0 ? 1 : 0.4,
-              },
-            ]}
-            disabled={inputText.trim().length === 0}
-            onPress={() => handleSendMessage()}
-            accessibilityLabel="Send message"
           >
-            <Ionicons
-              name="arrow-up"
-              size={17}
-              color={isDark ? '#090D16' : '#FFFFFF'}
+            <TextInput
+              style={[
+                styles.inputField,
+                {
+                  backgroundColor: colors.surfaceElevated,
+                  borderColor: colors.border,
+                  color: colors.textPrimary,
+                  borderRadius: borderRadius.md,
+                },
+              ]}
+              placeholder="Ask about expenses, budgets, liquidity..."
+              placeholderTextColor={colors.textMuted}
+              value={inputText}
+              onChangeText={setInputText}
+              onSubmitEditing={() => handleSendMessage()}
+              returnKeyType="send"
             />
-          </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                {
+                  backgroundColor: isDark ? '#FFFFFF' : '#0F172A',
+                  borderRadius: borderRadius.md,
+                  opacity: inputText.trim().length > 0 ? 1 : 0.4,
+                },
+              ]}
+              disabled={inputText.trim().length === 0}
+              onPress={() => handleSendMessage()}
+              accessibilityLabel="Send message"
+            >
+              <Ionicons
+                name="arrow-up"
+                size={17}
+                color={isDark ? '#090D16' : '#FFFFFF'}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
   },
   keyboardContainer: {
     flex: 1,
+  },
+  composerWrapper: {
+    width: '100%',
   },
   modelImportBanner: {
     flexDirection: 'row',
@@ -501,7 +522,7 @@ const styles = StyleSheet.create({
   messagesContent: {
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
   messageRow: {
     flexDirection: 'row',
@@ -589,8 +610,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 76 : 66,
+    paddingVertical: 10,
     borderTopWidth: 1,
   },
   inputField: {

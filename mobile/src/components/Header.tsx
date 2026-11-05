@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Platform, StatusBar } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme';
 
@@ -17,9 +18,21 @@ export const Header: React.FC<HeaderProps> = ({
   showThemeToggle = false,
 }) => {
   const { colors, isDark, toggleTheme, borderRadius } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  // Dynamic top inset accounting for Android status bar and display cutouts
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0
+  );
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        { paddingTop: topInset + (Platform.OS === 'android' ? 6 : 4) },
+      ]}
+    >
       <View style={styles.titleContainer}>
         <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
           {title}

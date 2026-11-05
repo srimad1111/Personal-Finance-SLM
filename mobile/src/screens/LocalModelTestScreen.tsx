@@ -14,7 +14,6 @@ import {
   Text,
   View,
   ScrollView,
-  SafeAreaView,
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
@@ -344,7 +343,7 @@ export const LocalModelTestScreen: React.FC<LocalModelTestScreenProps> = ({ onNa
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
         title="Local Model Test"
         subtitle="On-Device Gemma 3 1B SLM"
@@ -722,17 +721,17 @@ export const LocalModelTestScreen: React.FC<LocalModelTestScreenProps> = ({ onNa
           </View>
         </Card>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 110,
+    paddingBottom: 28,
   },
   headerBackBtn: {
     width: 34,

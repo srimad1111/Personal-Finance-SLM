@@ -64,7 +64,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
   ];
 
   return (
-    <View style={styles.floatingContainer} pointerEvents="box-none">
+    <View style={styles.container}>
       <View
         style={[
           styles.tabBar,
@@ -175,11 +175,9 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
 };
 
 const styles = StyleSheet.create({
-  floatingContainer: {
-    position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 24 : 12,
-    left: 14,
-    right: 14,
+  container: {
+    width: '100%',
+    paddingHorizontal: 14,
     alignItems: 'center',
   },
   tabBar: {

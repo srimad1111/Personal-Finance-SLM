@@ -4,7 +4,6 @@ import {
   Text,
   View,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
   Modal,
   TextInput,
@@ -154,7 +153,7 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
         title="Budgets"
         subtitle={`${currentMonthName} ${currentYear} · Deterministic Guardrails`}
@@ -577,17 +576,17 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingBottom: 110,
+    paddingBottom: 28,
   },
   addBudgetBtn: {
     flexDirection: 'row',
