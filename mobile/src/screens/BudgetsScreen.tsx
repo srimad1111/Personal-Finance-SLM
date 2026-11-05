@@ -300,6 +300,16 @@ export const BudgetsScreen: React.FC<BudgetsScreenProps> = ({ onDatabaseChanged 
 
         {isLoading ? (
           <ActivityIndicator size="small" color={colors.accent} style={{ marginVertical: 30 }} />
+        ) : budgets.length === 0 ? (
+          <Card style={styles.emptyBudgetsCard}>
+            <Ionicons name="pie-chart-outline" size={32} color={colors.textMuted} style={{ marginBottom: 8 }} />
+            <Text style={[styles.emptyBudgetsTitle, { color: colors.textPrimary }]}>
+              No Budgets Set
+            </Text>
+            <Text style={[styles.emptyBudgetsSub, { color: colors.textMuted }]}>
+              All category budgets start at ₹0.00. Tap "Set Limit" above to configure monthly spending limits.
+            </Text>
+          </Card>
         ) : (
           budgets.map((b) => {
             const catMeta = (CATEGORIES as Record<string, any>)[b.categoryId] || {
@@ -760,5 +770,21 @@ const styles = StyleSheet.create({
   inlineError: {
     fontSize: 11,
     marginBottom: 8,
+  },
+  emptyBudgetsCard: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  emptyBudgetsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  emptyBudgetsSub: {
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

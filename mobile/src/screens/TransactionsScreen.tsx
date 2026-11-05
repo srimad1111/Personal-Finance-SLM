@@ -313,14 +313,14 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
         <View style={styles.summaryItem}>
           <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>INFLOW</Text>
           <Text style={[styles.summaryValue, { color: colors.success }]}>
-            +{formatINR(currentTotalIncome)}
+            {currentTotalIncome > 0 ? `+${formatINR(currentTotalIncome)}` : formatINR(0)}
           </Text>
         </View>
         <View style={[styles.stripDivider, { backgroundColor: colors.borderSubtle }]} />
         <View style={styles.summaryItem}>
           <Text style={[styles.summaryLabel, { color: colors.textMuted }]}>OUTFLOW</Text>
           <Text style={[styles.summaryValue, { color: colors.danger }]}>
-            -{formatINR(currentTotalExpense)}
+            {currentTotalExpense > 0 ? `-${formatINR(currentTotalExpense)}` : formatINR(0)}
           </Text>
         </View>
         <View style={[styles.stripDivider, { backgroundColor: colors.borderSubtle }]} />
@@ -346,10 +346,14 @@ export const TransactionsScreen: React.FC<TransactionsScreenProps> = ({
           <View style={styles.emptyContainer}>
             <Ionicons name="receipt-outline" size={40} color={colors.textMuted} />
             <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>
-              No transactions found
+              {searchQuery || selectedCategory || selectedFilter !== 'all'
+                ? 'No transactions found'
+                : 'No transactions yet'}
             </Text>
             <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
-              Try adjusting your search query or active filter tags.
+              {searchQuery || selectedCategory || selectedFilter !== 'all'
+                ? 'Try adjusting your search query or active filter tags.'
+                : 'Tap "+" above to record your first income or expense.'}
             </Text>
           </View>
         ) : (

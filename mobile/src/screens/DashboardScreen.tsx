@@ -171,7 +171,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <View style={styles.metricColumn}>
               <Text style={[styles.metricLabel, { color: colors.textMuted }]}>Inflow</Text>
               <Text style={[styles.metricNumber, { color: colors.success }]}>
-                +{formatINR(monthlyIncome)}
+                {monthlyIncome > 0 ? `+${formatINR(monthlyIncome)}` : formatINR(0)}
               </Text>
             </View>
 
@@ -180,7 +180,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <View style={styles.metricColumn}>
               <Text style={[styles.metricLabel, { color: colors.textMuted }]}>Outflow</Text>
               <Text style={[styles.metricNumber, { color: colors.danger }]}>
-                -{formatINR(monthlyExpense)}
+                {monthlyExpense > 0 ? `-${formatINR(monthlyExpense)}` : formatINR(0)}
               </Text>
             </View>
 
@@ -194,7 +194,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   { color: savingsRate >= 0 ? colors.textPrimary : colors.danger },
                 ]}
               >
-                {savingsRate.toFixed(1)}%
+                {monthlyIncome > 0 ? `${savingsRate.toFixed(1)}%` : '0%'}
               </Text>
             </View>
           </View>
@@ -384,7 +384,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           ) : (
             <View style={styles.emptyCardBox}>
               <Text style={[styles.emptyCardText, { color: colors.textMuted }]}>
-                No transactions recorded yet
+                No transactions yet
               </Text>
             </View>
           )}
