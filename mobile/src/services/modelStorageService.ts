@@ -108,6 +108,9 @@ export class ModelStorageError extends Error {
 export function getDocumentDirectory(): string {
   const dir = FileSystem.documentDirectory;
   if (!dir) {
+    if (Platform.OS === 'web') {
+      return '/virtual/documentDirectory/';
+    }
     throw new ModelStorageError(
       'UNSUPPORTED_STORAGE',
       'Application document directory is not available on this platform.'
@@ -157,6 +160,9 @@ let isImporting = false;
  * Returns whether a valid model file is currently present in persistent storage.
  */
 export async function isModelImported(): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    return false;
+  }
   try {
     const path = getModelPath();
     const info = await FileSystem.getInfoAsync(path);
@@ -170,6 +176,15 @@ export async function isModelImported(): Promise<boolean> {
  * Retrieves comprehensive information about the stored model and metadata.
  */
 export async function getModelInfo(): Promise<ModelStorageInfo> {
+  if (Platform.OS === 'web') {
+    return {
+      isImported: false,
+      path: 'Web Runtime (Android APK required for native inference)',
+      filename: MODEL_FILENAME,
+      status: 'not_imported',
+    };
+  }
+
   const path = getModelPath();
   const metadataPath = getMetadataPath();
 
@@ -530,6 +545,7 @@ export async function deleteImportedModel(): Promise<void> {
  * Never touches the active valid model or backup (.bak) files.
  */
 export async function cleanupAbandonedTempFiles(): Promise<number> {
+  if (Platform.OS === 'web') return 0;
   let cleanedCount = 0;
   if (isImporting) return 0;
 

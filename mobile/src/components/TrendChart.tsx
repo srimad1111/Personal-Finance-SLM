@@ -1,18 +1,18 @@
 import React from 'react';
 import { StyleSheet, View, Text } from 'react-native';
-import { SpendingTrend } from '../types';
+import { MonthlyTrend } from '../types/database';
 import { useTheme } from '../theme';
 
 interface TrendChartProps {
-  trends: SpendingTrend[];
+  trends: MonthlyTrend[];
 }
 
 export const TrendChart: React.FC<TrendChartProps> = ({ trends }) => {
   const { colors, borderRadius } = useTheme();
 
   // Normalize heights against maximum value with minimum baseline
-  const maxVal = Math.max(...trends.flatMap((t) => [t.income, t.expense]), 50000);
-  const chartHeight = 130;
+  const maxVal = Math.max(...trends.flatMap((t) => [t.income, t.expense]), 10000);
+  const chartHeight = 120;
 
   return (
     <View style={styles.container}>
@@ -28,7 +28,7 @@ export const TrendChart: React.FC<TrendChartProps> = ({ trends }) => {
         </View>
       </View>
 
-      {/* Bar Chart Area with subtle background hairline guides */}
+      {/* Bar Chart Area */}
       <View style={[styles.chartArea, { height: chartHeight }]}>
         {/* Subtle gridline guide at 50% */}
         <View
@@ -39,8 +39,8 @@ export const TrendChart: React.FC<TrendChartProps> = ({ trends }) => {
         />
 
         {trends.map((item) => {
-          const incomeHeight = Math.max((item.income / maxVal) * (chartHeight - 16), 4);
-          const expenseHeight = Math.max((item.expense / maxVal) * (chartHeight - 16), 4);
+          const incomeHeight = item.income > 0 ? Math.max((item.income / maxVal) * (chartHeight - 22), 4) : 0;
+          const expenseHeight = item.expense > 0 ? Math.max((item.expense / maxVal) * (chartHeight - 22), 4) : 0;
 
           return (
             <View key={item.month} style={styles.columnContainer}>
@@ -81,12 +81,12 @@ export const TrendChart: React.FC<TrendChartProps> = ({ trends }) => {
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 6,
+    marginVertical: 4,
   },
   legendRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 14,
+    gap: 12,
     marginBottom: 10,
   },
   legendItem: {
@@ -95,9 +95,9 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   legendIndicator: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   legendText: {
     fontSize: 11,
@@ -105,11 +105,11 @@ const styles = StyleSheet.create({
   },
   chartArea: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     alignItems: 'flex-end',
-    paddingBottom: 22,
+    paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(150, 150, 150, 0.12)',
+    borderBottomColor: 'rgba(38, 50, 71, 0.5)',
     position: 'relative',
   },
   gridLine: {
@@ -129,11 +129,11 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   bar: {
-    width: 8,
-    minHeight: 4,
+    width: 7,
+    minHeight: 0,
   },
   monthLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '500',
     position: 'absolute',
     bottom: -18,

@@ -682,9 +682,10 @@ export const LocalModelTestScreen: React.FC<LocalModelTestScreenProps> = ({ onNa
                 key={m.id}
                 style={[
                   styles.messageBubble,
+                  { borderRadius: borderRadius.md },
                   m.sender === 'user'
-                    ? [styles.userBubble, { backgroundColor: isDark ? '#1E293B' : '#E2E8F0' }]
-                    : [styles.modelBubble, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }],
+                    ? [styles.userBubble, { backgroundColor: colors.surfaceElevated, borderColor: colors.border, borderWidth: 1 }]
+                    : [styles.modelBubble, { backgroundColor: colors.surface, borderColor: colors.border }],
                 ]}
               >
                 <View style={styles.messageMetaRow}>
@@ -708,7 +709,7 @@ export const LocalModelTestScreen: React.FC<LocalModelTestScreenProps> = ({ onNa
 
             {/* In-Flight Streaming Display */}
             {isGenerating && streamingText.length > 0 && (
-              <View style={[styles.messageBubble, styles.modelBubble, { backgroundColor: colors.surfaceElevated, borderColor: colors.aiAccent }]}>
+              <View style={[styles.messageBubble, styles.modelBubble, { borderRadius: borderRadius.md, backgroundColor: colors.surface, borderColor: colors.aiAccent }]}>
                 <View style={styles.messageMetaRow}>
                   <Text style={[styles.messageSender, { color: colors.aiAccent }]}>
                     Gemma 3 1B (Streaming...)
@@ -871,7 +872,7 @@ const styles = StyleSheet.create({
   presetPill: {
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 14,
+    borderRadius: 8,
     borderWidth: 1,
     marginRight: 6,
     marginBottom: 6,
@@ -882,7 +883,7 @@ const styles = StyleSheet.create({
   },
   promptInput: {
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 10,
     fontSize: 13,
     minHeight: 70,
@@ -895,7 +896,7 @@ const styles = StyleSheet.create({
   },
   logContainer: {
     borderTopWidth: 1,
-    borderTopColor: '#33415533',
+    borderTopColor: 'rgba(38, 50, 71, 0.5)',
     paddingTop: 12,
   },
   logHeader: {

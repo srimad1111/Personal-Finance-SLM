@@ -10,6 +10,12 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       type: 'sourceFile',
     };
   }
+  if (platform === 'web' && moduleName === 'llama.rn') {
+    return {
+      filePath: path.resolve(__dirname, 'src/shims/llama.web.ts'),
+      type: 'sourceFile',
+    };
+  }
   return context.resolveRequest(context, moduleName, platform);
 };
 

@@ -41,7 +41,7 @@ export const QuickActionButton: React.FC<QuickActionButtonProps> = ({
           },
         ]}
       >
-        <Ionicons name={icon} size={17} color={tint} />
+        <Ionicons name={icon} size={15} color={tint} />
       </View>
       <Text style={[styles.label, { color: colors.textPrimary }]} numberOfLines={1}>
         {label}
@@ -56,14 +56,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 6,
     borderWidth: 1,
     marginHorizontal: 3,
   },
   iconBox: {
-    width: 26,
-    height: 26,
+    width: 24,
+    height: 24,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 6,

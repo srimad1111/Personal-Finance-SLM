@@ -19,6 +19,7 @@ import { MainTabType, Transaction } from '../types';
 import { getCategoryWiseTotals, getFinancialSummary } from '../database';
 import { CategoryBreakdown } from '../types';
 import { formatINR, formatTransactionAmount } from '../utils/currency';
+import { isModelImported } from '../services/modelStorageService';
 
 interface DashboardScreenProps {
   onNavigate: (tab: MainTabType) => void;
@@ -33,11 +34,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onOpenDbDiagnostics,
   transactions = [],
 }) => {
-  const { colors, borderRadius, isDark } = useTheme();
+  const { colors, borderRadius } = useTheme();
   const [showBalance, setShowBalance] = useState(true);
   const [categoryBreakdowns, setCategoryBreakdowns] = useState<CategoryBreakdown[]>([]);
   const [monthlyIncome, setMonthlyIncome] = useState(0);
   const [monthlyExpense, setMonthlyExpense] = useState(0);
+  const [isModelReady, setIsModelReady] = useState(false);
 
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -60,6 +62,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         icon: c.icon,
       }));
       setCategoryBreakdowns(mappedBreakdowns);
+
+      const modelImported = await isModelImported();
+      setIsModelReady(modelImported);
     } catch (err) {
       console.error('[LOAD_DASHBOARD_METRICS_ERROR]', err);
     }
@@ -80,13 +85,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const netBalance = allTimeIncome - allTimeExpense;
   const currentMonthSavings = monthlyIncome - monthlyExpense;
   const savingsRate = monthlyIncome > 0 ? (currentMonthSavings / monthlyIncome) * 100 : 0;
-  const recentTransactions = transactions.slice(0, 6);
+  const recentTransactions = transactions.slice(0, 5);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <Header
         title="Portfolio"
-        subtitle="Primary Ledger · Offline SQLite"
+        subtitle="Offline SQLite Ledger"
         rightAction={
           <View style={styles.headerRightActions}>
             {onOpenDbDiagnostics && (
@@ -100,9 +105,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   },
                 ]}
                 onPress={onOpenDbDiagnostics}
-                accessibilityLabel="SQLite Health & Diagnostic Tests"
+                accessibilityLabel="Database Health Diagnostics"
               >
-                <Ionicons name="shield-checkmark-outline" size={16} color={colors.success} />
+                <Ionicons name="shield-checkmark-outline" size={15} color={colors.success} />
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -115,23 +120,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                 },
               ]}
               onPress={() => onNavigate('modelTest')}
-              accessibilityLabel="Local Model Test"
+              accessibilityLabel="Local Model Test Bench"
             >
-              <Ionicons name="hardware-chip-outline" size={16} color={colors.aiAccent} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.headerActionBtn,
-                {
-                  backgroundColor: colors.surfaceElevated,
-                  borderColor: colors.border,
-                  borderRadius: borderRadius.md,
-                },
-              ]}
-              onPress={() => onNavigate('analytics')}
-              accessibilityLabel="Analytics & Charts"
-            >
-              <Ionicons name="stats-chart-outline" size={16} color={colors.textPrimary} />
+              <Ionicons name="hardware-chip-outline" size={15} color={colors.aiAccent} />
             </TouchableOpacity>
           </View>
         }
@@ -141,7 +132,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Master Net Balance Card (Revolut / Ramp Inspired) */}
+        {/* Master Net Balance Card (Revolut / Apple Wallet Inspired) */}
         <Card style={styles.heroBalanceCard}>
           <View style={styles.balanceHeader}>
             <View style={styles.balanceTag}>
@@ -152,11 +143,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             </View>
             <TouchableOpacity
               onPress={() => setShowBalance(!showBalance)}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Ionicons
                 name={showBalance ? 'eye-outline' : 'eye-off-outline'}
-                size={17}
+                size={16}
                 color={colors.textMuted}
               />
             </TouchableOpacity>
@@ -166,7 +157,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             {showBalance ? formatINR(netBalance) : '••••••••'}
           </Text>
 
-          {/* 3-Stat Metric Strip */}
+          {/* 3-Column Clean Secondary Metric Strip */}
           <View style={[styles.metricsStrip, { borderTopColor: colors.borderSubtle }]}>
             <View style={styles.metricColumn}>
               <Text style={[styles.metricLabel, { color: colors.textMuted }]}>Inflow</Text>
@@ -200,7 +191,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </View>
         </Card>
 
-        {/* Quick Action Tiles */}
+        {/* Quick Action Buttons */}
         <View style={styles.quickActionsRow}>
           <QuickActionButton
             label="Expense"
@@ -228,36 +219,54 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           />
         </View>
 
-        {/* Local Model Test Entry Point */}
+        {/* Local Model Status Card (Compact & Honest) */}
         <Card
-          style={styles.sectionCard}
+          style={styles.modelFeatureCard}
           onPress={() => onNavigate('modelTest')}
         >
-          <View style={styles.sectionHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              <View
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: borderRadius.md,
-                  backgroundColor: `${colors.aiAccent}22`,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  marginRight: 10,
-                }}
-              >
-                <Ionicons name="hardware-chip-outline" size={18} color={colors.aiAccent} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-                  Local Model Test
-                </Text>
-                <Text style={[styles.sectionSubtitle, { color: colors.textMuted }]}>
-                  On-device Gemma 3 1B SLM test bench
-                </Text>
-              </View>
+          <View style={styles.modelFeatureContent}>
+            <View
+              style={[
+                styles.modelIconBox,
+                {
+                  backgroundColor: `${colors.aiAccent}16`,
+                  borderRadius: borderRadius.sm,
+                },
+              ]}
+            >
+              <Ionicons name="hardware-chip-outline" size={17} color={colors.aiAccent} />
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            <View style={{ flex: 1 }}>
+              <View style={styles.modelTitleRow}>
+                <Text style={[styles.modelFeatureTitle, { color: colors.textPrimary }]}>
+                  Gemma 3 1B SLM
+                </Text>
+                <View
+                  style={[
+                    styles.modelStatusPill,
+                    {
+                      backgroundColor: isModelReady ? `${colors.success}18` : `${colors.textMuted}18`,
+                      borderColor: isModelReady ? colors.success : colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.modelStatusPillText,
+                      { color: isModelReady ? colors.success : colors.textMuted },
+                    ]}
+                  >
+                    {isModelReady ? 'Ready' : 'Not Imported'}
+                  </Text>
+                </View>
+              </View>
+              <Text style={[styles.modelFeatureSubtitle, { color: colors.textMuted }]}>
+                {isModelReady
+                  ? 'On-device private inference active via llama.rn'
+                  : 'Tap to import GGUF model into local sandbox'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
           </View>
         </Card>
 
@@ -291,7 +300,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           )}
         </Card>
 
-        {/* Recent Transactions List (Mercury / Linear Single List Container) */}
+        {/* Recent Transactions List */}
         <View style={styles.transactionsHeaderRow}>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
             Recent Activity
@@ -300,7 +309,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             onPress={() => onNavigate('transactions')}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={[styles.viewAllText, { color: colors.accent }]}>See all ({transactions.length}) →</Text>
+            <Text style={[styles.viewAllText, { color: colors.accent }]}>
+              See all ({transactions.length}) →
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -339,7 +350,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   >
                     <Ionicons
                       name={categoryMeta.icon as any}
-                      size={17}
+                      size={16}
                       color={categoryMeta.color}
                     />
                   </View>
@@ -350,7 +361,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                       {tx.merchant || tx.description}
                     </Text>
                     <View style={styles.txMetaGroup}>
-                      <Text style={[styles.txCategory, { color: colors.textMuted }]}>
+                      <Text style={[styles.txCategory, { color: colors.textSecondary }]}>
                         {categoryMeta.name}
                       </Text>
                       {tx.isAiCategorized && (
@@ -390,11 +401,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           )}
         </Card>
 
-        {/* Subtle Security & Offline Engine Footer */}
+        {/* Security & Offline Engine Footer */}
         <View style={styles.footerNoteRow}>
-          <Ionicons name="lock-closed-outline" size={12} color={colors.textMuted} style={{ marginRight: 4 }} />
+          <Ionicons name="lock-closed-outline" size={11} color={colors.textMuted} style={{ marginRight: 4 }} />
           <Text style={[styles.footerNoteText, { color: colors.textMuted }]}>
-            100% Offline · Local SQLite AES/WAL Storage
+            100% Offline · Local SQLite WAL Storage
           </Text>
         </View>
       </ScrollView>
@@ -407,7 +418,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingBottom: 110,
   },
   headerRightActions: {
@@ -415,15 +426,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   headerActionBtn: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
   },
   heroBalanceCard: {
-    padding: 18,
-    marginTop: 4,
+    padding: 16,
+    marginTop: 2,
     marginBottom: 12,
   },
   balanceHeader: {
@@ -442,7 +453,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   balanceCaption: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     letterSpacing: 0.8,
   },
@@ -450,20 +461,20 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '700',
     letterSpacing: -0.6,
-    marginVertical: 10,
+    marginVertical: 8,
   },
   metricsStrip: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 14,
+    paddingTop: 12,
     borderTopWidth: 1,
   },
   metricColumn: {
     flex: 1,
   },
   metricLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '500',
     marginBottom: 2,
   },
@@ -474,17 +485,56 @@ const styles = StyleSheet.create({
   },
   metricDivider: {
     width: 1,
-    height: 24,
+    height: 22,
     marginHorizontal: 8,
   },
   quickActionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 12,
+  },
+  modelFeatureCard: {
+    padding: 12,
+    marginBottom: 12,
+  },
+  modelFeatureContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modelIconBox: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  modelTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  modelFeatureTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  modelStatusPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderWidth: 1,
+    borderRadius: 4,
+  },
+  modelStatusPillText: {
+    fontSize: 9,
+    fontWeight: '600',
+  },
+  modelFeatureSubtitle: {
+    fontSize: 11,
+    marginTop: 2,
   },
   sectionCard: {
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -493,13 +543,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     letterSpacing: -0.2,
   },
   sectionSubtitle: {
     fontSize: 11,
-    fontWeight: '400',
     marginTop: 1,
   },
   viewAllText: {
@@ -517,25 +566,25 @@ const styles = StyleSheet.create({
   transactionListCard: {
     paddingVertical: 0,
     paddingHorizontal: 14,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   txRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 11,
   },
   txIconContainer: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   txInfo: {
     flex: 1,
   },
   txTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     letterSpacing: -0.2,
   },
@@ -545,21 +594,19 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   txCategory: {
-    fontSize: 12,
-    fontWeight: '400',
+    fontSize: 11,
   },
   txAmountContainer: {
     alignItems: 'flex-end',
     marginLeft: 8,
   },
   txAmount: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     letterSpacing: -0.2,
   },
   txDate: {
-    fontSize: 11,
-    fontWeight: '400',
+    fontSize: 10,
     marginTop: 2,
   },
   emptyCardBox: {
@@ -573,10 +620,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    paddingVertical: 10,
   },
   footerNoteText: {
-    fontSize: 11,
-    fontWeight: '400',
+    fontSize: 10,
   },
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Platform, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme';
 
@@ -14,16 +14,20 @@ export const Header: React.FC<HeaderProps> = ({
   title,
   subtitle,
   rightAction,
-  showThemeToggle = true,
+  showThemeToggle = false,
 }) => {
   const { colors, isDark, toggleTheme, borderRadius } = useTheme();
 
   return (
     <View style={styles.container}>
       <View style={styles.titleContainer}>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+        <Text style={[styles.title, { color: colors.textPrimary }]} numberOfLines={1}>
+          {title}
+        </Text>
         {subtitle && (
-          <Text style={[styles.subtitle, { color: colors.textMuted }]}>{subtitle}</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={1}>
+            {subtitle}
+          </Text>
         )}
       </View>
 
@@ -44,7 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Ionicons
               name={isDark ? 'sunny-outline' : 'moon-outline'}
-              size={17}
+              size={16}
               color={isDark ? '#F59E0B' : colors.textPrimary}
             />
           </TouchableOpacity>
@@ -60,12 +64,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 8,
-    paddingBottom: 14,
+    paddingTop: Platform.OS === 'android' ? 8 : 4,
+    paddingBottom: 12,
     paddingHorizontal: 20,
   },
   titleContainer: {
     flex: 1,
+    justifyContent: 'center',
   },
   title: {
     fontSize: 22,

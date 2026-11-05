@@ -11,17 +11,18 @@ interface ExpenseBreakdownBarProps {
 export const ExpenseBreakdownBar: React.FC<ExpenseBreakdownBarProps> = ({ categories }) => {
   const { colors, borderRadius } = useTheme();
 
+  // Display top categories
   const displayedCategories = categories.slice(0, 4);
 
   return (
     <View style={styles.container}>
-      {/* Segmented Distribution Strip */}
+      {/* Sleek Segmented Distribution Bar */}
       <View
         style={[
           styles.barContainer,
           {
             backgroundColor: colors.surfaceElevated,
-            borderRadius: borderRadius.sm,
+            borderRadius: borderRadius.full,
           },
         ]}
       >
@@ -35,7 +36,7 @@ export const ExpenseBreakdownBar: React.FC<ExpenseBreakdownBarProps> = ({ catego
                 {
                   backgroundColor: item.color,
                   width: `${item.percentage}%`,
-                  marginRight: index < categories.length - 1 ? 1 : 0,
+                  marginRight: index < categories.length - 1 ? 2 : 0,
                 },
               ]}
             />
@@ -44,19 +45,21 @@ export const ExpenseBreakdownBar: React.FC<ExpenseBreakdownBarProps> = ({ catego
       </View>
 
       {/* Grid Legend with Amounts and Percentages */}
-      <View style={styles.legendContainer}>
+      <View style={styles.legendGrid}>
         {displayedCategories.map((item) => (
           <View key={item.category} style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: item.color }]} />
             <Text style={[styles.legendName, { color: colors.textSecondary }]} numberOfLines={1}>
               {item.name}
             </Text>
-            <Text style={[styles.legendValue, { color: colors.textPrimary }]}>
-              {formatINR(item.amount)}
-            </Text>
-            <Text style={[styles.legendPercentage, { color: colors.textMuted }]}>
-              {item.percentage.toFixed(0)}%
-            </Text>
+            <View style={styles.legendValues}>
+              <Text style={[styles.legendAmount, { color: colors.textPrimary }]}>
+                {formatINR(item.amount)}
+              </Text>
+              <Text style={[styles.legendPct, { color: colors.textMuted }]}>
+                {item.percentage.toFixed(0)}%
+              </Text>
+            </View>
           </View>
         ))}
       </View>
@@ -69,15 +72,16 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   barContainer: {
-    height: 7,
+    height: 6,
     flexDirection: 'row',
     overflow: 'hidden',
     width: '100%',
   },
   barSegment: {
     height: '100%',
+    borderRadius: 3,
   },
-  legendContainer: {
+  legendGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginTop: 14,
@@ -87,27 +91,32 @@ const styles = StyleSheet.create({
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    minWidth: '45%',
-    flex: 1,
+    width: '47%',
   },
   legendDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    marginRight: 7,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
   },
   legendName: {
     fontSize: 12,
     fontWeight: '500',
     flex: 1,
+    marginRight: 4,
   },
-  legendValue: {
+  legendValues: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  legendAmount: {
     fontSize: 12,
     fontWeight: '600',
-    marginRight: 6,
+    letterSpacing: -0.2,
   },
-  legendPercentage: {
-    fontSize: 11,
+  legendPct: {
+    fontSize: 10,
     fontWeight: '500',
   },
 });
