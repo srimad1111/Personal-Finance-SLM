@@ -102,129 +102,8 @@ class WebDatabaseClient implements IDatabaseClient {
       ];
     }
 
-    // 3. Seed Realistic Budgets for Current Month if empty
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
-
-    if (this.state.budgets.length === 0) {
-      const initialBudgets: [string, number][] = [
-        ['housing', 25000.0],
-        ['groceries', 8000.0],
-        ['food_and_dining', 6000.0],
-        ['shopping', 7000.0],
-        ['transportation', 3500.0],
-        ['utilities', 3000.0],
-        ['entertainment', 2500.0],
-      ];
-
-      this.state.budgets = initialBudgets.map(([catId, limit]) => ({
-        id: `bgt_${catId}_${currentYear}_${currentMonth}`,
-        category_id: catId,
-        monthly_limit: limit,
-        month: currentMonth,
-        year: currentYear,
-      }));
-    }
-
-    // 4. Seed Starter Transactions if empty
-    if (this.state.transactions.length === 0) {
-      const monthStr = String(currentMonth).padStart(2, '0');
-      this.state.transactions = [
-        {
-          id: `tx_${Date.now()}_01`,
-          amount: 85000.0,
-          transaction_type: 'income',
-          description: 'Monthly Corporate Salary',
-          merchant: 'Infosys Ltd Payroll',
-          category: 'salary',
-          transaction_date: `${currentYear}-${monthStr}-01`,
-          notes: 'Monthly salary credited via NEFT',
-          created_at: Date.now() - 86400000 * 2,
-          is_ai_categorized: 1,
-          ai_confidence: 0.99,
-        },
-        {
-          id: `tx_${Date.now()}_02`,
-          amount: 24000.0,
-          transaction_type: 'expense',
-          description: 'Monthly Apartment Lease',
-          merchant: 'Prestige Residency Lease',
-          category: 'housing',
-          transaction_date: `${currentYear}-${monthStr}-01`,
-          notes: 'Flat rent transfer to landlord via UPI',
-          created_at: Date.now() - 86400000 * 2,
-          is_ai_categorized: 1,
-          ai_confidence: 0.98,
-        },
-        {
-          id: `tx_${Date.now()}_03`,
-          amount: 3450.0,
-          transaction_type: 'expense',
-          description: 'Weekly Organic Groceries & Staples',
-          merchant: 'Blinkit Commerce',
-          category: 'groceries',
-          transaction_date: `${currentYear}-${monthStr}-02`,
-          notes: null,
-          created_at: Date.now() - 86400000,
-          is_ai_categorized: 1,
-          ai_confidence: 0.97,
-        },
-        {
-          id: `tx_${Date.now()}_04`,
-          amount: 1280.0,
-          transaction_type: 'expense',
-          description: 'Dinner with Team at Barbeque Nation',
-          merchant: 'Swiggy Online',
-          category: 'food_and_dining',
-          transaction_date: `${currentYear}-${monthStr}-02`,
-          notes: null,
-          created_at: Date.now() - 86400000,
-          is_ai_categorized: 1,
-          ai_confidence: 0.95,
-        },
-        {
-          id: `tx_${Date.now()}_05`,
-          amount: 2150.0,
-          transaction_type: 'expense',
-          description: 'Monthly Electricity Consumption Bill',
-          merchant: 'BESCOM Bangalore Electricity',
-          category: 'utilities',
-          transaction_date: `${currentYear}-${monthStr}-02`,
-          notes: null,
-          created_at: Date.now() - 86400000,
-          is_ai_categorized: 1,
-          ai_confidence: 0.99,
-        },
-        {
-          id: `tx_${Date.now()}_06`,
-          amount: 420.0,
-          transaction_type: 'expense',
-          description: 'Ride to Airport Metro Station',
-          merchant: 'Uber India',
-          category: 'transportation',
-          transaction_date: `${currentYear}-${monthStr}-02`,
-          notes: null,
-          created_at: Date.now() - 86400000,
-          is_ai_categorized: 1,
-          ai_confidence: 0.98,
-        },
-        {
-          id: `tx_${Date.now()}_07`,
-          amount: 18500.0,
-          transaction_type: 'income',
-          description: 'Embedded ML Consulting Milestone 1',
-          merchant: 'Fintech Advisory Client',
-          category: 'freelance',
-          transaction_date: `${currentYear}-${monthStr}-02`,
-          notes: 'Invoice #2041 paid via IMPS wire',
-          created_at: Date.now() - 43200000,
-          is_ai_categorized: 0,
-          ai_confidence: null,
-        },
-      ];
-    }
-
+    // Budgets and transactions start completely clean (0 records) on fresh installations.
+    // User data is preserved; no demo records are automatically inserted.
     this.saveToStorage();
     this.initialized = true;
   }
@@ -412,7 +291,7 @@ class WebDatabaseClient implements IDatabaseClient {
     }
 
     // 4. Categories Query
-    if (/FROM categories/i.test(cleanSql)) {
+    if (/^SELECT\s+(c\.\*|\*)\s+FROM\s+categories/i.test(cleanSql) || /FROM categories( c)?\s+WHERE/i.test(cleanSql) && !cleanSql.includes('LEFT JOIN')) {
       // 4a. Categories not in budgets: WHERE id NOT IN (SELECT category_id FROM budgets WHERE month = ? AND year = ?)
       if (/NOT IN \(SELECT category_id FROM budgets/i.test(cleanSql)) {
         const [month, year] = params;
@@ -444,8 +323,8 @@ class WebDatabaseClient implements IDatabaseClient {
     }
 
     // 5. Budgets Progress Join Query
-    if (/SELECT\s+b\.id,\s+b\.category_id/i.test(cleanSql)) {
-      const [month, year] = params;
+    if (/SELECT\s+b\.id/i.test(cleanSql)) {
+      const [startDate, endDate, month, year] = params.length >= 4 ? params : [null, null, params[0], params[1]];
       const targetMonth = Number(month);
       const targetYear = Number(year);
 
@@ -469,13 +348,15 @@ class WebDatabaseClient implements IDatabaseClient {
 
         return {
           id: b.id,
-          category_id: b.category_id,
-          name: cat ? cat.name : b.category_id,
+          categoryId: b.category_id,
+          categoryName: cat ? cat.name : b.category_id,
           icon: cat ? cat.icon : 'pricetag-outline',
           color: cat ? cat.color : '#6366F1',
+          monthlyLimit: b.monthly_limit,
           monthly_limit: b.monthly_limit,
           month: b.month,
           year: b.year,
+          spentAmount: total_spent,
           total_spent,
         };
       });
@@ -484,7 +365,8 @@ class WebDatabaseClient implements IDatabaseClient {
     }
 
     // 6. Transactions: Summary Aggregation
-    if (/SELECT\s+COUNT\(\*\) as count,\s+COALESCE\(SUM\(CASE WHEN transaction_type = 'income'/i.test(cleanSql)) {
+    if (/SELECT\s+COUNT\(\*\) as count,\s+COALESCE\(SUM\(CASE WHEN transaction_type = 'income'/i.test(cleanSql) ||
+        /SELECT\s+COALESCE\(SUM\(CASE WHEN transaction_type = 'income'/i.test(cleanSql)) {
       let filtered = [...this.state.transactions];
       let pIdx = 0;
       if (cleanSql.includes('transaction_date >= ?')) {
@@ -513,8 +395,12 @@ class WebDatabaseClient implements IDatabaseClient {
       return [
         {
           count,
+          transactionCount: count,
+          totalIncome: total_income,
+          totalExpenses: total_expenses,
           total_income,
           total_expenses,
+          netBalance: net_balance,
           net_balance,
           avg_transaction,
         },
@@ -522,7 +408,8 @@ class WebDatabaseClient implements IDatabaseClient {
     }
 
     // 7. Transactions: Category Wise Totals
-    if (/SELECT\s+category,\s+SUM\(amount\) as total_amount/i.test(cleanSql)) {
+    if (/FROM categories c\s+LEFT JOIN transactions t/i.test(cleanSql) ||
+        /SELECT\s+category,\s+SUM\(amount\) as total_amount/i.test(cleanSql)) {
       const type = params[0] || 'expense';
       let filtered = this.state.transactions.filter((t) => t.transaction_type === type);
       let pIdx = 1;
@@ -535,30 +422,40 @@ class WebDatabaseClient implements IDatabaseClient {
         filtered = filtered.filter((t) => t.transaction_date <= end);
       }
 
-      const groups: Record<string, { total_amount: number; count: number }> = {};
+      const groups: Record<string, { totalAmount: number; count: number }> = {};
       for (const t of filtered) {
         if (!groups[t.category]) {
-          groups[t.category] = { total_amount: 0, count: 0 };
+          groups[t.category] = { totalAmount: 0, count: 0 };
         }
-        groups[t.category].total_amount += t.amount;
+        groups[t.category].totalAmount += t.amount;
         groups[t.category].count += 1;
       }
 
-      const list = Object.keys(groups).map((category) => ({
-        category,
-        total_amount: groups[category].total_amount,
-        count: groups[category].count,
-      }));
+      const list = Object.keys(groups).map((catId) => {
+        const cat = this.state.categories.find((c) => c.id === catId);
+        return {
+          categoryId: catId,
+          category: catId,
+          categoryName: cat ? cat.name : catId,
+          type: type as 'income' | 'expense',
+          icon: cat ? cat.icon : 'receipt-outline',
+          color: cat ? cat.color : '#6366F1',
+          totalAmount: groups[catId].totalAmount,
+          total_amount: groups[catId].totalAmount,
+          transactionCount: groups[catId].count,
+          count: groups[catId].count,
+        };
+      });
 
-      list.sort((a, b) => b.total_amount - a.total_amount);
+      list.sort((a, b) => b.totalAmount - a.totalAmount);
       return list as unknown as T[];
     }
 
     // 8. Transactions: Monthly Trends
-    if (/SELECT\s+substr\(transaction_date, 1, 7\) as month_key/i.test(cleanSql)) {
+    if (/substr\(transaction_date,\s*1,\s*7\)\s+as\s+(yearMonth|month_key)/i.test(cleanSql)) {
       const minMonthKey = params[0] || '2000-01';
       const filtered = this.state.transactions.filter(
-        (t) => t.transaction_date.substring(0, 7) >= minMonthKey
+        (t) => typeof minMonthKey === 'number' || t.transaction_date.substring(0, 7) >= minMonthKey
       );
 
       const monthsMap: Record<string, { income: number; expense: number }> = {};
@@ -572,13 +469,14 @@ class WebDatabaseClient implements IDatabaseClient {
       }
 
       const list = Object.keys(monthsMap).map((month_key) => ({
+        yearMonth: month_key,
         month_key,
         income: monthsMap[month_key].income,
         expense: monthsMap[month_key].expense,
         savings: monthsMap[month_key].income - monthsMap[month_key].expense,
       }));
 
-      list.sort((a, b) => a.month_key.localeCompare(b.month_key));
+      list.sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
       return list as unknown as T[];
     }
 
@@ -653,6 +551,26 @@ class WebDatabaseClient implements IDatabaseClient {
 
     return [] as unknown as T[];
   }
+  public async resetForTesting(): Promise<void> {
+    this.state.transactions = [];
+    this.state.budgets = [];
+    this.state.categories = SEED_CATEGORIES.map((c) => ({
+      id: c.id,
+      name: c.name,
+      type: c.type,
+      icon: c.icon,
+      color: c.color,
+    }));
+    this.state.settings = [
+      {
+        id: DEFAULT_SETTINGS.id,
+        currency: DEFAULT_SETTINGS.currency,
+        theme: DEFAULT_SETTINGS.theme as 'dark' | 'light',
+        privacy_preferences: DEFAULT_SETTINGS.privacy_preferences,
+      },
+    ];
+    this.saveToStorage();
+  }
 }
 
 const webDbInstance = new WebDatabaseClient();
@@ -663,5 +581,5 @@ export async function getDatabaseClient(): Promise<IDatabaseClient> {
 }
 
 export async function resetDatabase(): Promise<void> {
-  await webDbInstance.execAsync('DELETE FROM transactions; DELETE FROM budgets; DELETE FROM categories; DELETE FROM settings;');
+  await webDbInstance.resetForTesting();
 }

@@ -17,7 +17,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
 }) => {
   const { colors, borderRadius, shadows, isDark } = useTheme();
 
-  const tabs: {
+  const leftTabs: {
     type: MainTabType;
     label: string;
     icon: keyof typeof Ionicons.glyphMap;
@@ -35,6 +35,14 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
       icon: 'receipt-outline',
       activeIcon: 'receipt',
     },
+  ];
+
+  const rightTabs: {
+    type: MainTabType;
+    label: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    activeIcon: keyof typeof Ionicons.glyphMap;
+  }[] = [
     {
       type: 'budgets',
       label: 'Budgets',
@@ -61,16 +69,16 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
         style={[
           styles.tabBar,
           {
-            backgroundColor: isDark ? 'rgba(15, 21, 35, 0.94)' : 'rgba(255, 255, 255, 0.94)',
+            backgroundColor: isDark ? 'rgba(17, 24, 39, 0.96)' : 'rgba(255, 255, 255, 0.96)',
             borderColor: colors.border,
             borderRadius: borderRadius.xl,
             shadowColor: colors.shadowColor,
           },
-          shadows.card,
+          shadows.elevated,
         ]}
       >
-        {/* First 2 tabs */}
-        {tabs.slice(0, 2).map((tab) => {
+        {/* Left Tabs (Portfolio & Activity) */}
+        {leftTabs.map((tab) => {
           const isActive = activeTab === tab.type;
           return (
             <TouchableOpacity
@@ -81,20 +89,21 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
             >
               <Ionicons
                 name={isActive ? tab.activeIcon : tab.icon}
-                size={19}
-                color={isActive ? (isDark ? '#FFFFFF' : colors.textPrimary) : colors.textMuted}
+                size={18}
+                color={isActive ? colors.textPrimary : colors.textMuted}
               />
               <Text
                 style={[
                   styles.tabLabel,
                   {
-                    color: isActive ? (isDark ? '#FFFFFF' : colors.textPrimary) : colors.textMuted,
-                    fontWeight: isActive ? '600' : '500',
+                    color: isActive ? colors.textPrimary : colors.textMuted,
+                    fontWeight: isActive ? '600' : '400',
                   },
                 ]}
               >
                 {tab.label}
               </Text>
+              {isActive && <View style={[styles.activeDot, { backgroundColor: colors.accent }]} />}
             </TouchableOpacity>
           );
         })}
@@ -107,7 +116,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
               backgroundColor: isDark ? '#FFFFFF' : '#0F172A',
               borderRadius: borderRadius.full,
             },
-            shadows.subtle,
+            shadows.card,
           ]}
           activeOpacity={0.8}
           onPress={onAddPress}
@@ -120,15 +129,11 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
           />
         </TouchableOpacity>
 
-        {/* Next 3 tabs */}
-        {tabs.slice(2).map((tab) => {
+        {/* Right Tabs (Budgets, Analytics, Copilot) */}
+        {rightTabs.map((tab) => {
           const isActive = activeTab === tab.type;
           const isAiTab = tab.type === 'assistant';
-          const activeColor = isAiTab
-            ? colors.aiAccent
-            : isDark
-            ? '#FFFFFF'
-            : colors.textPrimary;
+          const activeColor = isAiTab ? colors.aiAccent : colors.textPrimary;
 
           return (
             <TouchableOpacity
@@ -139,7 +144,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
             >
               <Ionicons
                 name={isActive ? tab.activeIcon : tab.icon}
-                size={19}
+                size={18}
                 color={isActive ? activeColor : colors.textMuted}
               />
               <Text
@@ -147,12 +152,20 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
                   styles.tabLabel,
                   {
                     color: isActive ? activeColor : colors.textMuted,
-                    fontWeight: isActive ? '600' : '500',
+                    fontWeight: isActive ? '600' : '400',
                   },
                 ]}
               >
                 {tab.label}
               </Text>
+              {isActive && (
+                <View
+                  style={[
+                    styles.activeDot,
+                    { backgroundColor: isAiTab ? colors.aiAccent : colors.accent },
+                  ]}
+                />
+              )}
             </TouchableOpacity>
           );
         })}
@@ -164,9 +177,9 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
 const styles = StyleSheet.create({
   floatingContainer: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 24 : 14,
-    left: 16,
-    right: 16,
+    bottom: Platform.OS === 'ios' ? 24 : 12,
+    left: 14,
+    right: 14,
     alignItems: 'center',
   },
   tabBar: {
@@ -174,26 +187,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 6,
     borderWidth: 1,
   },
   tabButton: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 3,
+    paddingVertical: 2,
+    position: 'relative',
   },
   tabLabel: {
     fontSize: 10,
-    marginTop: 3,
+    marginTop: 2,
     letterSpacing: -0.1,
   },
+  activeDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    marginTop: 2,
+  },
   centerAddButton: {
-    width: 42,
-    height: 42,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 4,
+    marginHorizontal: 3,
   },
 });

@@ -163,7 +163,7 @@ export const AnalyticsScreen: React.FC = () => {
               ) : (
                 <View style={styles.noDataBox}>
                   <Text style={[styles.noDataText, { color: colors.textMuted }]}>
-                    Insufficient monthly records to plot trend
+                    No transactions yet to plot trend
                   </Text>
                 </View>
               )}
@@ -222,7 +222,7 @@ export const AnalyticsScreen: React.FC = () => {
                     Savings Rate
                   </Text>
                   <Text style={[styles.savingsSubValue, { color: colors.textPrimary }]}>
-                    {savingsRate.toFixed(1)}%
+                    {totalIncome > 0 ? `${savingsRate.toFixed(1)}%` : '0%'}
                   </Text>
                 </View>
               </View>
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingBottom: 110,
   },
   timeframeBar: {

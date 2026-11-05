@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
   modelImportBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 18,
+    marginHorizontal: 16,
     marginTop: 6,
     marginBottom: 6,
     padding: 10,
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   messagesContent: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 20,
   },
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(150, 150, 150, 0.1)',
   },
   suggestedScroll: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     gap: 6,
   },
   suggestedChip: {
@@ -588,9 +588,9 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+    paddingBottom: Platform.OS === 'ios' ? 76 : 66,
     borderTopWidth: 1,
   },
   inputField: {

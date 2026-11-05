@@ -31,13 +31,13 @@ export const Card: React.FC<CardProps> = ({
       borderRadius: borderRadius.lg,
       shadowColor: colors.shadowColor,
     },
-    !flat && shadows.subtle,
+    !flat && (elevated ? shadows.elevated : shadows.card),
     style,
   ];
 
   if (onPress) {
     return (
-      <TouchableOpacity activeOpacity={0.7} onPress={onPress} style={containerStyle}>
+      <TouchableOpacity activeOpacity={0.75} onPress={onPress} style={containerStyle}>
         {children}
       </TouchableOpacity>
     );

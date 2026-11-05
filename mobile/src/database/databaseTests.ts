@@ -192,9 +192,15 @@ export async function runDatabaseTests(): Promise<DbTestSuiteReport> {
   // Test 12: Budget Retrieval & Progress
   await runTest('DB-12: Budget Retrieval & Calculated Spent Amounts', async () => {
     const now = new Date();
-    const budgets = await budgetRepository.getBudgetProgress(now.getMonth() + 1, now.getFullYear());
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+
+    // Upsert a test budget for groceries to test progress calculation
+    await budgetRepository.upsert('groceries', 5000.0, month, year);
+
+    const budgets = await budgetRepository.getBudgetProgress(month, year);
     if (budgets.length === 0) {
-      throw new Error('Expected seeded category budgets');
+      throw new Error('Expected category budgets');
     }
     const groceriesBudget = budgets.find((b) => b.categoryId === 'groceries');
     if (!groceriesBudget) {
@@ -240,7 +246,7 @@ export async function runDatabaseTests(): Promise<DbTestSuiteReport> {
     await transactionRepository.delete(attackTx.id);
   });
 
-  // Test 15: Delete Transaction
+  // Test 15: Delete Transaction & Cleanup
   await runTest('DB-15: Delete Transaction & Verify Removal', async () => {
     if (!testTxId) throw new Error('No test transaction ID available');
     const deleted = await transactionRepository.delete(testTxId);
@@ -251,6 +257,12 @@ export async function runDatabaseTests(): Promise<DbTestSuiteReport> {
     if (checkDeleted !== null) {
       throw new Error('Transaction was not deleted from SQLite');
     }
+
+    // Clean up temporary test budget
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+    await budgetRepository.delete(`bgt_groceries_${year}_${month}`);
   });
 
   const passed = results.filter((r) => r.passed).length;
