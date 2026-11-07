@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, View, Modal, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Modal, ActivityIndicator, Keyboard, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { TransactionsScreen } from '../screens/TransactionsScreen';
 import { AddTransactionScreen } from '../screens/AddTransactionScreen';
@@ -21,6 +22,7 @@ import { useTheme } from '../theme';
 
 export const AppNavigator: React.FC = () => {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const [activeTab, setActiveTab] = useState<MainTabType>('dashboard');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -29,6 +31,22 @@ export const AppNavigator: React.FC = () => {
   const [addModalInitialType, setAddModalInitialType] = useState<TransactionType>('expense');
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [showDbDiagnostics, setShowDbDiagnostics] = useState<boolean>(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Load transactions deterministically from local SQLite database
   const loadDatabaseData = useCallback(async () => {
@@ -179,12 +197,24 @@ export const AppNavigator: React.FC = () => {
       {/* Active Screen View */}
       <View style={styles.screenContainer}>{renderCurrentScreen()}</View>
 
-      {/* Floating Bottom Navigation Bar */}
-      <BottomTabBar
-        activeTab={activeTab}
-        onTabPress={setActiveTab}
-        onAddPress={() => handleOpenAddModal('expense')}
-      />
+      {/* Bottom Navigation Region */}
+      {!isKeyboardVisible && activeTab !== 'modelTest' && (
+        <View
+          style={[
+            styles.bottomNavRegion,
+            {
+              paddingBottom: Math.max(insets.bottom, Platform.OS === 'ios' ? 12 : 8),
+              backgroundColor: colors.background,
+            },
+          ]}
+        >
+          <BottomTabBar
+            activeTab={activeTab}
+            onTabPress={setActiveTab}
+            onAddPress={() => handleOpenAddModal('expense')}
+          />
+        </View>
+      )}
 
       {/* Add / Edit Transaction Modal */}
       <Modal
@@ -223,6 +253,10 @@ const styles = StyleSheet.create({
   },
   screenContainer: {
     flex: 1,
+  },
+  bottomNavRegion: {
+    width: '100%',
+    paddingTop: 6,
   },
   loadingContainer: {
     flex: 1,

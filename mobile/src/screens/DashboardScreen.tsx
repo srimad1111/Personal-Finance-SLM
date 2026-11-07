@@ -4,7 +4,6 @@ import {
   Text,
   View,
   ScrollView,
-  SafeAreaView,
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -88,7 +87,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const recentTransactions = transactions.slice(0, 5);
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
         title="Portfolio"
         subtitle="Offline SQLite Ledger"
@@ -409,17 +408,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingBottom: 110,
+    paddingBottom: 28,
   },
   headerRightActions: {
     flexDirection: 'row',

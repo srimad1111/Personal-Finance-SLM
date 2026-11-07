@@ -4,7 +4,6 @@ import {
   Text,
   View,
   ScrollView,
-  SafeAreaView,
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
@@ -63,7 +62,7 @@ export const HomeScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
         {/* Header */}
         <View style={styles.header}>
@@ -119,7 +118,7 @@ export const HomeScreen: React.FC = () => {
 
         {loading && <ActivityIndicator size="small" color="#2563eb" style={{ marginTop: 12 }} />}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 

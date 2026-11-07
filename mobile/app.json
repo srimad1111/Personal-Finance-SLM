@@ -21,7 +21,8 @@
         "backgroundColor": "#090D16"
       },
       "package": "com.personalfinance.slm",
-      "permissions": []
+      "permissions": [],
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "favicon": "./assets/favicon.png",
